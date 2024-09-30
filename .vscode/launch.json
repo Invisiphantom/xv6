@@ -10,7 +10,7 @@
             "cwd": "${workspaceFolder}",
             "program": "${workspaceFolder}/kernel/kernel",
             "miDebuggerPath": "/usr/bin/gdb-multiarch",
-            "miDebuggerServerAddress": "127.0.0.1:26002",
+            "miDebuggerServerAddress": "127.0.0.1:26001",
         }
     ]
 }

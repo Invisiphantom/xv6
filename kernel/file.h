@@ -1,38 +1,42 @@
+
+
 struct file {
-  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
-  int ref; // reference count
-  char readable;
-  char writable;
-  struct pipe *pipe; // FD_PIPE
-  struct inode *ip;  // FD_INODE and FD_DEVICE
-  uint off;          // FD_INODE
-  short major;       // FD_DEVICE
+    enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;  // 文件类型
+    int ref;                                              // 引用计数
+    char readable;                                        // 可读
+    char writable;                                        // 可写
+    struct pipe* pipe;                                    // FD_PIPE
+    struct inode* ip;                                     // FD_INODE and FD_DEVICE
+    uint off;                                             // FD_INODE
+    short major;                                          // FD_DEVICE
 };
 
-#define major(dev)  ((dev) >> 16 & 0xFFFF)
-#define minor(dev)  ((dev) & 0xFFFF)
-#define	mkdev(m,n)  ((uint)((m)<<16| (n)))
+#define major(dev) ((dev) >> 16 & 0xFFFF)      // 获取主设备号 (高16位)
+#define minor(dev) ((dev) & 0xFFFF)            // 获取次设备号 (低16位)
+#define mkdev(m, n) ((uint)((m) << 16 | (n)))  // 创建设备号 (高+低)
 
-// in-memory copy of an inode
+// 内存中的inode结构体
 struct inode {
-  uint dev;           // Device number
-  uint inum;          // Inode number
-  int ref;            // Reference count
-  struct sleeplock lock; // protects everything below here
-  int valid;          // inode has been read from disk?
+    uint dev;   // 设备号(主+次)
+    uint inum;  // inode编号
+    int ref;    // 引用计数
 
-  short type;         // copy of disk inode
-  short major;
-  short minor;
-  short nlink;
-  uint size;
-  uint addrs[NDIRECT+1];
+    struct sleeplock lock;  // 保护下面的所有内容
+    int valid;              // inode是否已经从硬盘读取
+
+    // 硬盘inode的类型拷贝(fs.h)
+    short type;               // 文件类型
+    short major;              // 主设备号
+    short minor;              // 次设备号
+    short nlink;              // 硬链接数
+    uint size;                // 文件大小
+    uint addrs[NDIRECT + 1];  // 数据块地址
 };
 
 // map major device number to device functions.
 struct devsw {
-  int (*read)(int, uint64, int);
-  int (*write)(int, uint64, int);
+    int (*read)(int, uint64, int);
+    int (*write)(int, uint64, int);
 };
 
 extern struct devsw devsw[];

@@ -10,7 +10,7 @@
 .globl kernelvec
 .align 4
 kernelvec:
-        # make room to save registers.
+        # 为了保存寄存器, 需要256字节的空间
         addi sp, sp, -256
 
         # save caller-saved registers.

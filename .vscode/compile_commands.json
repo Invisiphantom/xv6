@@ -7,9 +7,9 @@
       "kernel/entry.o",
       "kernel/entry.S"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/entry.S",
-    "output": "/home/ethan/xv6/kernel/entry.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/entry.S",
+    "output": "/root/data/xv6/kernel/entry.o"
   },
   {
     "arguments": [
@@ -48,9 +48,9 @@
       "kernel/start.o",
       "kernel/start.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/start.c",
-    "output": "/home/ethan/xv6/kernel/start.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/start.c",
+    "output": "/root/data/xv6/kernel/start.o"
   },
   {
     "arguments": [
@@ -89,9 +89,9 @@
       "kernel/console.o",
       "kernel/console.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/console.c",
-    "output": "/home/ethan/xv6/kernel/console.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/console.c",
+    "output": "/root/data/xv6/kernel/console.o"
   },
   {
     "arguments": [
@@ -130,9 +130,9 @@
       "kernel/printf.o",
       "kernel/printf.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/printf.c",
-    "output": "/home/ethan/xv6/kernel/printf.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/printf.c",
+    "output": "/root/data/xv6/kernel/printf.o"
   },
   {
     "arguments": [
@@ -171,9 +171,9 @@
       "kernel/uart.o",
       "kernel/uart.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/uart.c",
-    "output": "/home/ethan/xv6/kernel/uart.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/uart.c",
+    "output": "/root/data/xv6/kernel/uart.o"
   },
   {
     "arguments": [
@@ -212,9 +212,9 @@
       "kernel/kalloc.o",
       "kernel/kalloc.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/kalloc.c",
-    "output": "/home/ethan/xv6/kernel/kalloc.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/kalloc.c",
+    "output": "/root/data/xv6/kernel/kalloc.o"
   },
   {
     "arguments": [
@@ -253,9 +253,9 @@
       "kernel/spinlock.o",
       "kernel/spinlock.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/spinlock.c",
-    "output": "/home/ethan/xv6/kernel/spinlock.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/spinlock.c",
+    "output": "/root/data/xv6/kernel/spinlock.o"
   },
   {
     "arguments": [
@@ -294,9 +294,9 @@
       "kernel/string.o",
       "kernel/string.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/string.c",
-    "output": "/home/ethan/xv6/kernel/string.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/string.c",
+    "output": "/root/data/xv6/kernel/string.o"
   },
   {
     "arguments": [
@@ -335,9 +335,9 @@
       "kernel/main.o",
       "kernel/main.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/main.c",
-    "output": "/home/ethan/xv6/kernel/main.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/main.c",
+    "output": "/root/data/xv6/kernel/main.o"
   },
   {
     "arguments": [
@@ -376,9 +376,9 @@
       "kernel/vm.o",
       "kernel/vm.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/vm.c",
-    "output": "/home/ethan/xv6/kernel/vm.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/vm.c",
+    "output": "/root/data/xv6/kernel/vm.o"
   },
   {
     "arguments": [
@@ -417,9 +417,9 @@
       "kernel/proc.o",
       "kernel/proc.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/proc.c",
-    "output": "/home/ethan/xv6/kernel/proc.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/proc.c",
+    "output": "/root/data/xv6/kernel/proc.o"
   },
   {
     "arguments": [
@@ -429,9 +429,9 @@
       "kernel/swtch.o",
       "kernel/swtch.S"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/swtch.S",
-    "output": "/home/ethan/xv6/kernel/swtch.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/swtch.S",
+    "output": "/root/data/xv6/kernel/swtch.o"
   },
   {
     "arguments": [
@@ -441,9 +441,9 @@
       "kernel/trampoline.o",
       "kernel/trampoline.S"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/trampoline.S",
-    "output": "/home/ethan/xv6/kernel/trampoline.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/trampoline.S",
+    "output": "/root/data/xv6/kernel/trampoline.o"
   },
   {
     "arguments": [
@@ -482,9 +482,9 @@
       "kernel/trap.o",
       "kernel/trap.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/trap.c",
-    "output": "/home/ethan/xv6/kernel/trap.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/trap.c",
+    "output": "/root/data/xv6/kernel/trap.o"
   },
   {
     "arguments": [
@@ -523,9 +523,9 @@
       "kernel/syscall.o",
       "kernel/syscall.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/syscall.c",
-    "output": "/home/ethan/xv6/kernel/syscall.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/syscall.c",
+    "output": "/root/data/xv6/kernel/syscall.o"
   },
   {
     "arguments": [
@@ -564,9 +564,9 @@
       "kernel/sysproc.o",
       "kernel/sysproc.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/sysproc.c",
-    "output": "/home/ethan/xv6/kernel/sysproc.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/sysproc.c",
+    "output": "/root/data/xv6/kernel/sysproc.o"
   },
   {
     "arguments": [
@@ -605,9 +605,9 @@
       "kernel/bio.o",
       "kernel/bio.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/bio.c",
-    "output": "/home/ethan/xv6/kernel/bio.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/bio.c",
+    "output": "/root/data/xv6/kernel/bio.o"
   },
   {
     "arguments": [
@@ -646,9 +646,9 @@
       "kernel/fs.o",
       "kernel/fs.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/fs.c",
-    "output": "/home/ethan/xv6/kernel/fs.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/fs.c",
+    "output": "/root/data/xv6/kernel/fs.o"
   },
   {
     "arguments": [
@@ -687,9 +687,9 @@
       "kernel/log.o",
       "kernel/log.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/log.c",
-    "output": "/home/ethan/xv6/kernel/log.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/log.c",
+    "output": "/root/data/xv6/kernel/log.o"
   },
   {
     "arguments": [
@@ -728,9 +728,9 @@
       "kernel/sleeplock.o",
       "kernel/sleeplock.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/sleeplock.c",
-    "output": "/home/ethan/xv6/kernel/sleeplock.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/sleeplock.c",
+    "output": "/root/data/xv6/kernel/sleeplock.o"
   },
   {
     "arguments": [
@@ -769,9 +769,9 @@
       "kernel/file.o",
       "kernel/file.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/file.c",
-    "output": "/home/ethan/xv6/kernel/file.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/file.c",
+    "output": "/root/data/xv6/kernel/file.o"
   },
   {
     "arguments": [
@@ -810,9 +810,9 @@
       "kernel/pipe.o",
       "kernel/pipe.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/pipe.c",
-    "output": "/home/ethan/xv6/kernel/pipe.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/pipe.c",
+    "output": "/root/data/xv6/kernel/pipe.o"
   },
   {
     "arguments": [
@@ -851,9 +851,9 @@
       "kernel/exec.o",
       "kernel/exec.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/exec.c",
-    "output": "/home/ethan/xv6/kernel/exec.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/exec.c",
+    "output": "/root/data/xv6/kernel/exec.o"
   },
   {
     "arguments": [
@@ -892,9 +892,9 @@
       "kernel/sysfile.o",
       "kernel/sysfile.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/sysfile.c",
-    "output": "/home/ethan/xv6/kernel/sysfile.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/sysfile.c",
+    "output": "/root/data/xv6/kernel/sysfile.o"
   },
   {
     "arguments": [
@@ -904,9 +904,9 @@
       "kernel/kernelvec.o",
       "kernel/kernelvec.S"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/kernelvec.S",
-    "output": "/home/ethan/xv6/kernel/kernelvec.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/kernelvec.S",
+    "output": "/root/data/xv6/kernel/kernelvec.o"
   },
   {
     "arguments": [
@@ -945,9 +945,9 @@
       "kernel/plic.o",
       "kernel/plic.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/plic.c",
-    "output": "/home/ethan/xv6/kernel/plic.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/plic.c",
+    "output": "/root/data/xv6/kernel/plic.o"
   },
   {
     "arguments": [
@@ -986,9 +986,9 @@
       "kernel/virtio_disk.o",
       "kernel/virtio_disk.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/kernel/virtio_disk.c",
-    "output": "/home/ethan/xv6/kernel/virtio_disk.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/kernel/virtio_disk.c",
+    "output": "/root/data/xv6/kernel/virtio_disk.o"
   },
   {
     "arguments": [
@@ -1031,9 +1031,9 @@
       "user/initcode.o",
       "user/initcode.S"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/initcode.S",
-    "output": "/home/ethan/xv6/user/initcode.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/initcode.S",
+    "output": "/root/data/xv6/user/initcode.o"
   },
   {
     "arguments": [
@@ -1046,9 +1046,9 @@
       "mkfs/mkfs",
       "mkfs/mkfs.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/mkfs/mkfs.c",
-    "output": "/home/ethan/xv6/mkfs/mkfs"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/mkfs/mkfs.c",
+    "output": "/root/data/xv6/mkfs/mkfs"
   },
   {
     "arguments": [
@@ -1087,9 +1087,9 @@
       "user/ulib.o",
       "user/ulib.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/ulib.c",
-    "output": "/home/ethan/xv6/user/ulib.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/ulib.c",
+    "output": "/root/data/xv6/user/ulib.o"
   },
   {
     "arguments": [
@@ -1128,9 +1128,9 @@
       "user/usys.o",
       "user/usys.S"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/usys.S",
-    "output": "/home/ethan/xv6/user/usys.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/usys.S",
+    "output": "/root/data/xv6/user/usys.o"
   },
   {
     "arguments": [
@@ -1169,9 +1169,9 @@
       "user/printf.o",
       "user/printf.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/printf.c",
-    "output": "/home/ethan/xv6/user/printf.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/printf.c",
+    "output": "/root/data/xv6/user/printf.o"
   },
   {
     "arguments": [
@@ -1210,9 +1210,9 @@
       "user/umalloc.o",
       "user/umalloc.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/umalloc.c",
-    "output": "/home/ethan/xv6/user/umalloc.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/umalloc.c",
+    "output": "/root/data/xv6/user/umalloc.o"
   },
   {
     "arguments": [
@@ -1251,9 +1251,9 @@
       "user/cat.o",
       "user/cat.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/cat.c",
-    "output": "/home/ethan/xv6/user/cat.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/cat.c",
+    "output": "/root/data/xv6/user/cat.o"
   },
   {
     "arguments": [
@@ -1292,9 +1292,9 @@
       "user/echo.o",
       "user/echo.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/echo.c",
-    "output": "/home/ethan/xv6/user/echo.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/echo.c",
+    "output": "/root/data/xv6/user/echo.o"
   },
   {
     "arguments": [
@@ -1333,9 +1333,9 @@
       "user/forktest.o",
       "user/forktest.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/forktest.c",
-    "output": "/home/ethan/xv6/user/forktest.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/forktest.c",
+    "output": "/root/data/xv6/user/forktest.o"
   },
   {
     "arguments": [
@@ -1374,9 +1374,9 @@
       "user/grep.o",
       "user/grep.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/grep.c",
-    "output": "/home/ethan/xv6/user/grep.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/grep.c",
+    "output": "/root/data/xv6/user/grep.o"
   },
   {
     "arguments": [
@@ -1415,9 +1415,9 @@
       "user/init.o",
       "user/init.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/init.c",
-    "output": "/home/ethan/xv6/user/init.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/init.c",
+    "output": "/root/data/xv6/user/init.o"
   },
   {
     "arguments": [
@@ -1456,9 +1456,9 @@
       "user/kill.o",
       "user/kill.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/kill.c",
-    "output": "/home/ethan/xv6/user/kill.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/kill.c",
+    "output": "/root/data/xv6/user/kill.o"
   },
   {
     "arguments": [
@@ -1497,9 +1497,9 @@
       "user/ln.o",
       "user/ln.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/ln.c",
-    "output": "/home/ethan/xv6/user/ln.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/ln.c",
+    "output": "/root/data/xv6/user/ln.o"
   },
   {
     "arguments": [
@@ -1538,9 +1538,9 @@
       "user/ls.o",
       "user/ls.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/ls.c",
-    "output": "/home/ethan/xv6/user/ls.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/ls.c",
+    "output": "/root/data/xv6/user/ls.o"
   },
   {
     "arguments": [
@@ -1579,9 +1579,9 @@
       "user/mkdir.o",
       "user/mkdir.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/mkdir.c",
-    "output": "/home/ethan/xv6/user/mkdir.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/mkdir.c",
+    "output": "/root/data/xv6/user/mkdir.o"
   },
   {
     "arguments": [
@@ -1620,9 +1620,9 @@
       "user/rm.o",
       "user/rm.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/rm.c",
-    "output": "/home/ethan/xv6/user/rm.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/rm.c",
+    "output": "/root/data/xv6/user/rm.o"
   },
   {
     "arguments": [
@@ -1661,9 +1661,9 @@
       "user/sh.o",
       "user/sh.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/sh.c",
-    "output": "/home/ethan/xv6/user/sh.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/sh.c",
+    "output": "/root/data/xv6/user/sh.o"
   },
   {
     "arguments": [
@@ -1702,9 +1702,9 @@
       "user/stressfs.o",
       "user/stressfs.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/stressfs.c",
-    "output": "/home/ethan/xv6/user/stressfs.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/stressfs.c",
+    "output": "/root/data/xv6/user/stressfs.o"
   },
   {
     "arguments": [
@@ -1743,9 +1743,9 @@
       "user/usertests.o",
       "user/usertests.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/usertests.c",
-    "output": "/home/ethan/xv6/user/usertests.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/usertests.c",
+    "output": "/root/data/xv6/user/usertests.o"
   },
   {
     "arguments": [
@@ -1784,9 +1784,9 @@
       "user/grind.o",
       "user/grind.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/grind.c",
-    "output": "/home/ethan/xv6/user/grind.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/grind.c",
+    "output": "/root/data/xv6/user/grind.o"
   },
   {
     "arguments": [
@@ -1825,9 +1825,9 @@
       "user/wc.o",
       "user/wc.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/wc.c",
-    "output": "/home/ethan/xv6/user/wc.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/wc.c",
+    "output": "/root/data/xv6/user/wc.o"
   },
   {
     "arguments": [
@@ -1866,8 +1866,8 @@
       "user/zombie.o",
       "user/zombie.c"
     ],
-    "directory": "/home/ethan/xv6",
-    "file": "/home/ethan/xv6/user/zombie.c",
-    "output": "/home/ethan/xv6/user/zombie.o"
+    "directory": "/root/data/xv6",
+    "file": "/root/data/xv6/user/zombie.c",
+    "output": "/root/data/xv6/user/zombie.o"
   }
 ]

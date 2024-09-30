@@ -20,23 +20,18 @@ trampoline:
 .align 4
 .globl uservec
 uservec:    
-	#
-        # trap.c sets stvec to point here, so
-        # traps from user space start here,
-        # in supervisor mode, but with a
-        # user page table.
-        #
+        # trap.c 将 stvec 地址设置为此处
+        # 所以用户态 traps 跳转到此处
+        # 此时已经是内核态, 但是页表还属于用户态
 
-        # save user a0 in sscratch so
-        # a0 can be used to get at TRAPFRAME.
+        # 将a0保存到sscratch, 以便使用a0获取TRAPFRAME
         csrw sscratch, a0
 
-        # each process has a separate p->trapframe memory area,
-        # but it's mapped to the same virtual address
-        # (TRAPFRAME) in every process's user page table.
+        # 每个进程都有一个独立的p->trapframe内存区域
+        # 但是在每个进程的用户页表中，它映射到相同的虚拟地址(TRAPFRAME)
         li a0, TRAPFRAME
         
-        # save the user registers in TRAPFRAME
+        # 保存用户寄存器到 TRAPFRAME
         sd ra, 40(a0)
         sd sp, 48(a0)
         sd gp, 56(a0)
@@ -68,33 +63,32 @@ uservec:
         sd t5, 272(a0)
         sd t6, 280(a0)
 
-	# save the user a0 in p->trapframe->a0
+	# 保存 a0 到 p->trapframe->a0
         csrr t0, sscratch
         sd t0, 112(a0)
 
-        # initialize kernel stack pointer, from p->trapframe->kernel_sp
+        # 获取内核态栈指针 from p->trapframe->kernel_sp
         ld sp, 8(a0)
 
-        # make tp hold the current hartid, from p->trapframe->kernel_hartid
+        # 获取内核态硬件线程ID from p->trapframe->kernel_hartid
         ld tp, 32(a0)
 
-        # load the address of usertrap(), from p->trapframe->kernel_trap
+        # 获取函数地址usertrap() from p->trapframe->kernel_trap
         ld t0, 16(a0)
 
-        # fetch the kernel page table address, from p->trapframe->kernel_satp.
+        # 获取内核态页表地址 from p->trapframe->kernel_satp.
         ld t1, 0(a0)
 
-        # wait for any previous memory operations to complete, so that
-        # they use the user page table.
+        # 等待上述内存操作完成，此时还在使用用户页表
         sfence.vma zero, zero
 
-        # install the kernel page table.
+        # 加载satp为内核态页表
         csrw satp, t1
 
-        # flush now-stale user entries from the TLB.
+        # 从 TLB 中刷新现已过时的用户态条目
         sfence.vma zero, zero
 
-        # jump to usertrap(), which does not return
+        # 跳转到 usertrap()
         jr t0
 
 .globl userret
