@@ -3,6 +3,7 @@
 
 https://github.com/mit-pdos/xv6-riscv  
 https://pdos.csail.mit.edu/6.S081/2024/xv6/book-riscv-rev4.pdf
+https://www.cnblogs.com/KatyuMarisaBlog/p/14366115.html
 
 ```bash
 git clone https://github.com/Invisiphantom/xv6.git

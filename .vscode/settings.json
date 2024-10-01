@@ -2,6 +2,7 @@
     "files.associations": {
         "memlayout.h": "c",
         "fs.h": "c",
-        "proc.h": "c"
+        "proc.h": "c",
+        "assert.h": "c"
     }
 }

@@ -20,16 +20,13 @@
     } while (0)
 #endif
 
-#define NINODES 200
-
-// Disk layout:
-// [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
-
-int nbitmap = FSSIZE / BPB + 1;
-int ninodeblocks = NINODES / IPB + 1;
-int nlog = LOGSIZE;
-int nmeta;    // Number of meta blocks (boot, sb, nlog, inode, bitmap)
-int nblocks;  // Number of data blocks
+// 磁盘布局 [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
+#define NINODES 200                    // 最大inode数量
+int nbitmap = FSSIZE / BPB + 1;        // 需要的位图块数量
+int ninodeblocks = NINODES / IPB + 1;  // 需要的inode块数量
+int nlog = LOGSIZE;                    // 需要的日志块数量
+int nmeta;                             // 元数据块数量 (boot, sb, nlog, inode, bitmap)
+int nblocks;                           // 数据块数量
 
 int fsfd;
 struct superblock sb;
@@ -46,18 +43,17 @@ uint ialloc(ushort type);
 void iappend(uint inum, void* p, int n);
 void die(const char*);
 
-// convert to riscv byte order
+// 将大端序转换为小端序
 ushort xshort(ushort x) {
     ushort y;
-    uchar* a = (uchar*)&y;
+    uchar* a = (uchar*)(&y);
     a[0] = x;
     a[1] = x >> 8;
     return y;
 }
-
 uint xint(uint x) {
     uint y;
-    uchar* a = (uchar*)&y;
+    uchar* a = (uchar*)(&y);
     a[0] = x;
     a[1] = x >> 8;
     a[2] = x >> 16;
@@ -72,43 +68,50 @@ int main(int argc, char* argv[]) {
     char buf[BSIZE];
     struct dinode din;
 
+    // 保证int是4字节
     static_assert(sizeof(int) == 4, "Integers must be 4 bytes!");
 
+    // 用法 mkfs fs.img files...
     if (argc < 2) {
         fprintf(stderr, "Usage: mkfs fs.img files...\n");
         exit(1);
     }
 
+    // 确保磁盘块大小是inode和irent大小的整数倍
     assert((BSIZE % sizeof(struct dinode)) == 0);
     assert((BSIZE % sizeof(struct dirent)) == 0);
 
+    // fs.img 如果不存在则创建, 如果已存在则清空 (读写权限)
     fsfd = open(argv[1], O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (fsfd < 0)
         die(argv[1]);
 
-    // 1 fs block = 1 disk sector
-    nmeta = 2 + nlog + ninodeblocks + nbitmap;
-    nblocks = FSSIZE - nmeta;
+    // 文件系统块 <-> 磁盘扇区
+    // 元数据块数量 (boot, sb, nlog, inode, bitmap)
+    nmeta = 1 + 1 + nlog + ninodeblocks + nbitmap;
+    nblocks = FSSIZE - nmeta;  // 数据块数量
 
-    sb.magic = FSMAGIC;
-    sb.size = xint(FSSIZE);
-    sb.nblocks = xint(nblocks);
-    sb.ninodes = xint(NINODES);
-    sb.nlog = xint(nlog);
-    sb.logstart = xint(2);
-    sb.inodestart = xint(2 + nlog);
-    sb.bmapstart = xint(2 + nlog + ninodeblocks);
+    sb.magic = FSMAGIC;                            // 魔数
+    sb.size = xint(FSSIZE);                        // 文件系统总块数
+    sb.nblocks = xint(nblocks);                    // 数据块数量
+    sb.ninodes = xint(NINODES);                    // inode数量
+    sb.nlog = xint(nlog);                          // 日志块数量
+    sb.logstart = xint(2);                         // 第一个日志块的块号
+    sb.inodestart = xint(2 + nlog);                // 第一个inode块的块号
+    sb.bmapstart = xint(2 + nlog + ninodeblocks);  // 第一个空闲映射块的块号
 
     printf(
-        "nmeta %d (boot, super, log blocks %u inode blocks %u, bitmap blocks %u) blocks %d "
-        "total %d\n",
+        "nmeta=%d (boot, super, log blocks=%u, inode blocks=%u, bitmap blocks=%u)"
+        " blocks=%d total=%d\n",
         nmeta, nlog, ninodeblocks, nbitmap, nblocks, FSSIZE);
 
-    freeblock = nmeta;  // the first free block that we can allocate
+    freeblock = nmeta;  // 第一个可分配的空闲块
 
+    // 清空所有磁盘块
     for (i = 0; i < FSSIZE; i++)
         wsect(i, zeroes);
 
+    // 初始化超级块
     memset(buf, 0, sizeof(buf));
     memmove(buf, &sb, sizeof(sb));
     wsect(1, buf);
@@ -173,9 +176,12 @@ int main(int argc, char* argv[]) {
     exit(0);
 }
 
+// 将buf写入到磁盘的第sec扇区
 void wsect(uint sec, void* buf) {
+    // 移动fsfd位置到第sec扇区
     if (lseek(fsfd, sec * BSIZE, 0) != sec * BSIZE)
         die("lseek");
+    // 将buf写入到第sec扇区
     if (write(fsfd, buf, BSIZE) != BSIZE)
         die("write");
 }
@@ -210,7 +216,9 @@ void rsect(uint sec, void* buf) {
         die("read");
 }
 
+// 分配类型为type的inode
 uint ialloc(ushort type) {
+    // 分配新的inode编号
     uint inum = freeinode++;
     struct dinode din;
 

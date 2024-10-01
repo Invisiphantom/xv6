@@ -64,10 +64,10 @@ static struct disk {
 void virtio_disk_init(void) {
     uint32 status = 0;
 
-    initlock(&disk.vdisk_lock, "virtio_disk"); // 初始化虚拟磁盘锁
+    initlock(&disk.vdisk_lock, "virtio_disk");  // 初始化虚拟磁盘锁
 
-    if (*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 || *R(VIRTIO_MMIO_VERSION) != 2 ||
-        *R(VIRTIO_MMIO_DEVICE_ID) != 2 || *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551) {
+    if (*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 || *R(VIRTIO_MMIO_VERSION) != 2 || *R(VIRTIO_MMIO_DEVICE_ID) != 2 ||
+        *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551) {
         panic("could not find virtio disk");
     }
 
@@ -203,6 +203,7 @@ static int alloc3_desc(int* idx) {
     return 0;
 }
 
+// 0:读取  1:写入
 void virtio_disk_rw(struct buf* b, int write) {
     uint64 sector = b->blockno * (BSIZE / 512);
 
@@ -227,9 +228,10 @@ void virtio_disk_rw(struct buf* b, int write) {
     struct virtio_blk_req* buf0 = &disk.ops[idx[0]];
 
     if (write)
-        buf0->type = VIRTIO_BLK_T_OUT;  // write the disk
+        buf0->type = VIRTIO_BLK_T_OUT;  // 写入磁盘
     else
-        buf0->type = VIRTIO_BLK_T_IN;  // read the disk
+        buf0->type = VIRTIO_BLK_T_IN;  // 读取磁盘
+
     buf0->reserved = 0;
     buf0->sector = sector;
 

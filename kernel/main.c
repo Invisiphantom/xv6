@@ -28,7 +28,7 @@ void main() {
         plicinit();      // 设置外部中断优先级 (UART VirtIO)
         plicinithart();  // 当前CPU 启用UART和VirtIO中断
 
-        binit();             // buffer cache
+        binit();             // cache链环初始化
         iinit();             // inode table
         fileinit();          // file table
         virtio_disk_init();  // emulated hard disk

@@ -1,13 +1,15 @@
-// File system implementation.  Five layers:
-//   + Blocks: allocator for raw disk blocks.
-//   + Log: crash recovery for multi-step updates.
-//   + Files: inode allocator, reading, writing, metadata.
-//   + Directories: inode with special contents (list of other inodes!)
-//   + Names: paths like /usr/rtm/xv6/fs.c for convenient naming.
-//
-// This file contains the low-level file system manipulation
-// routines.  The (higher-level) system call implementations
-// are in sysfile.c.
+
+
+// 文件系统实现:
+//  + Dev+blockno: 原始磁盘块
+//  + Bcache: 缓存链环
+//  + Log: 多步更新的崩溃恢复
+//  + Inodes: inode分配器, 读取, 写入, 元数据
+//  + Directories: 具有特殊内容的inode(其他inode的列表)
+//  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c
+
+// 此文件包含低层次的文件系统操作
+// 高层次的系统调用实现在sysfile.c
 
 #include "types.h"
 #include "riscv.h"
@@ -22,11 +24,12 @@
 #include "file.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
-// there should be one superblock per disk device, but we run with
-// only one device
+
+// 每个磁盘设备都应该有一个超级块
+// 但我们只运行一个设备
 struct superblock sb;
 
-// Read the super block.
+// 读取超级块
 static void readsb(int dev, struct superblock* sb) {
     struct buf* bp;
 
@@ -35,7 +38,7 @@ static void readsb(int dev, struct superblock* sb) {
     brelse(bp);
 }
 
-// Init fs
+// 初始化文件系统
 void fsinit(int dev) {
     readsb(dev, &sb);
     if (sb.magic != FSMAGIC)
@@ -43,14 +46,14 @@ void fsinit(int dev) {
     initlog(dev, &sb);
 }
 
-// Zero a block.
+// 清空一个块 (dev:设备号 bno:块号)
 static void bzero(int dev, int bno) {
     struct buf* bp;
 
-    bp = bread(dev, bno);
-    memset(bp->data, 0, BSIZE);
-    log_write(bp);
-    brelse(bp);
+    bp = bread(dev, bno);        // 读取块 (已锁定的缓存)
+    memset(bp->data, 0, BSIZE);  // 清空块
+    log_write(bp);               // 写入日志
+    brelse(bp);                  // 释放块 (释放缓存锁 更新LRU)
 }
 
 // Blocks.
@@ -231,7 +234,7 @@ void iupdate(struct inode* ip) {
 static struct inode* iget(uint dev, uint inum) {
     struct inode *ip, *empty;
 
-    acquire(&itable.lock); // 获取itable锁
+    acquire(&itable.lock);  // 获取itable锁
 
     // Is the inode already in the table?
     empty = 0;

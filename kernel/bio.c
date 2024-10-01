@@ -1,17 +1,13 @@
-// Buffer cache.
-//
-// The buffer cache is a linked list of buf structures holding
-// cached copies of disk block contents.  Caching disk blocks
-// in memory reduces the number of disk reads and also provides
-// a synchronization point for disk blocks used by multiple processes.
-//
-// Interface:
-// * To get a buffer for a particular disk block, call bread.
-// * After changing buffer data, call bwrite to write it to disk.
-// * When done with the buffer, call brelse.
-// * Do not use the buffer after calling brelse.
-// * Only one process at a time can use a buffer,
-//     so do not keep them longer than necessary.
+
+// buffer cache是buf结构体链表, 用于缓存磁盘块内容
+// 在内存中缓存磁盘块减少了磁盘读取次数, 也为多个进程使用的磁盘块提供了同步点
+
+// 同时只有一个进程可以使用一个缓存
+// 所以不要超过必要保持缓存的时间
+
+// bread: 读取磁盘块内容到缓存
+// bwrite: 将缓存内容写回磁盘
+// brelse: 释放缓存 (不要在调用brelse后使用缓存)
 
 #include "types.h"
 #include "param.h"
@@ -22,72 +18,76 @@
 #include "fs.h"
 #include "buf.h"
 
+// 缓存链环, 通过prev/next连接
+// 按照最近使用的顺序排序
+// head.next是最新使用的, head.prev是最旧使用的
 struct {
     struct spinlock lock;
     struct buf buf[NBUF];
-
-    // Linked list of all buffers, through prev/next.
-    // Sorted by how recently the buffer was used.
-    // head.next is most recent, head.prev is least.
     struct buf head;
 } bcache;
 
 void binit(void) {
     struct buf* b;
 
-    initlock(&bcache.lock, "bcache");
+    initlock(&bcache.lock, "bcache");  // 初始化缓存锁
 
-    // Create linked list of buffers
+    // head自环
     bcache.head.prev = &bcache.head;
     bcache.head.next = &bcache.head;
+
+    // 在环中插入所有缓存
+    // head->buf[NBUF-1]->...->buf[0]->head
     for (b = bcache.buf; b < bcache.buf + NBUF; b++) {
         b->next = bcache.head.next;
         b->prev = &bcache.head;
-        initsleeplock(&b->lock, "buffer");
+        initsleeplock(&b->lock, "buffer");  // 为每个缓存块初始化锁
         bcache.head.next->prev = b;
         bcache.head.next = b;
     }
 }
 
-// Look through buffer cache for block on device dev.
-// If not found, allocate a buffer.
-// In either case, return locked buffer.
+// 查找缓存链环 是否已缓存设备dev的块blockno
+// 如果未找到, 则分配一个空缓存
+// 无论哪种情况, 返回锁定的缓存
 static struct buf* bget(uint dev, uint blockno) {
     struct buf* b;
 
-    acquire(&bcache.lock);
+    acquire(&bcache.lock);  // 获取缓存锁
 
-    // Is the block already cached?
+    // 从链环头部开始 查找该磁盘块是否已有缓存
     for (b = bcache.head.next; b != &bcache.head; b = b->next) {
         if (b->dev == dev && b->blockno == blockno) {
             b->refcnt++;
-            release(&bcache.lock);
-            acquiresleep(&b->lock);
+            release(&bcache.lock);   // 释放缓存锁
+            acquiresleep(&b->lock);  // 获取块锁
             return b;
         }
     }
 
-    // Not cached.
-    // Recycle the least recently used (LRU) unused buffer.
+    // 如果没有缓存, 则从缓存链环尾部找到一个闲置的LRU缓存
     for (b = bcache.head.prev; b != &bcache.head; b = b->prev) {
         if (b->refcnt == 0) {
-            b->dev = dev;
-            b->blockno = blockno;
-            b->valid = 0;
-            b->refcnt = 1;
-            release(&bcache.lock);
-            acquiresleep(&b->lock);
+            b->dev = dev;            // 设备号
+            b->blockno = blockno;    // 块号
+            b->valid = 0;            // 有效位:0
+            b->refcnt = 1;           // 引用计数:1
+            release(&bcache.lock);   // 释放缓存锁
+            acquiresleep(&b->lock);  // 获取块锁
             return b;
         }
     }
     panic("bget: no buffers");
 }
 
-// Return a locked buf with the contents of the indicated block.
+// 从设备dev读取块blockno, 并返回锁定的buf
 struct buf* bread(uint dev, uint blockno) {
     struct buf* b;
 
+    // 获取blockno对应的缓存
     b = bget(dev, blockno);
+
+    // 如果是新的无效缓存, 则从磁盘读取
     if (!b->valid) {
         virtio_disk_rw(b, 0);
         b->valid = 1;
@@ -102,18 +102,22 @@ void bwrite(struct buf* b) {
     virtio_disk_rw(b, 1);
 }
 
-// Release a locked buffer.
-// Move to the head of the most-recently-used list.
+// 将已锁定的缓存 释放锁
+// 并将移动到LRU列表的头部
 void brelse(struct buf* b) {
+    // 如果未锁定, 则panic
     if (!holdingsleep(&b->lock))
         panic("brelse");
 
-    releasesleep(&b->lock);
+    
+    releasesleep(&b->lock); // 释放块锁
 
-    acquire(&bcache.lock);
-    b->refcnt--;
+    acquire(&bcache.lock); // 获取缓存锁
+    
+    b->refcnt--; // 引用减1
+    
     if (b->refcnt == 0) {
-        // no one is waiting for it.
+        // 如果引用为0, 则将缓存移动到LRU列表的头部
         b->next->prev = b->prev;
         b->prev->next = b->next;
         b->next = bcache.head.next;
