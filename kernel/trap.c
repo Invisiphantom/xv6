@@ -20,7 +20,7 @@ void trapinit(void) {
     initlock(&tickslock, "time");
 }
 
-// set up to take exceptions and traps while in the kernel.
+// 设置stvec异常处理跳转到kernelvec.S
 void trapinithart(void) {
     w_stvec((uint64)kernelvec);
 }
@@ -156,8 +156,7 @@ void clockintr() {
         release(&tickslock);
     }
 
-    // 请求下一个定时器中断，同时清除当前的中断请求
-    // 1000000 大约是 0.1秒
+    // 设置下一次定时器中断(大约是 0.1秒)
     w_stimecmp(r_time() + 1000000);
 }
 

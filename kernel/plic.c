@@ -4,11 +4,12 @@
 #include "riscv.h"
 #include "defs.h"
 
-// RISC-V 平台级中断控制器 (PLIC)
-// the riscv Platform Level Interrupt Controller (PLIC)
+// RISC-V 平台级中断控制器
+// Platform Level Interrupt Controller (PLIC)
+
 
 void plicinit(void) {
-    // set desired IRQ priorities non-zero (otherwise disabled).
+    // 将需要接受的中断优先级设置为非零(否则被禁用)
     *(uint32*)(PLIC + UART0_IRQ * 4) = 1;
     *(uint32*)(PLIC + VIRTIO0_IRQ * 4) = 1;
 }
@@ -16,11 +17,10 @@ void plicinit(void) {
 void plicinithart(void) {
     int hart = cpuid();
 
-    // set enable bits for this hart's S-mode
-    // for the uart and virtio disk.
+    // 为每个CPU启用UART和VirtIO中断
     *(uint32*)PLIC_SENABLE(hart) = (1 << UART0_IRQ) | (1 << VIRTIO0_IRQ);
 
-    // set this hart's S-mode priority threshold to 0.
+    // 将每个CPU的优先级阈值设置为0
     *(uint32*)PLIC_SPRIORITY(hart) = 0;
 }
 

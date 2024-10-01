@@ -1,6 +1,6 @@
 //
 // low-level driver routines for 16550a UART.
-//
+// UART (Universal Asynchronous Receiver-Transmitter)
 
 #include "types.h"
 #include "param.h"
@@ -10,30 +10,34 @@
 #include "proc.h"
 #include "defs.h"
 
-// the UART control registers are memory-mapped
-// at address UART0. this macro returns the
-// address of one of the registers.
+// UART控制寄存器 是映射到内存UART0位置的
+// 这个宏返回此类寄存器的地址
 #define Reg(reg) ((volatile unsigned char*)(UART0 + (reg)))
 
-// the UART control registers.
+// the UART control regs.
 // some have different meanings for
 // read vs write.
 // see http://byterunner.com/16550.html
-#define RHR 0  // receive holding register (for input bytes)
-#define THR 0  // transmit holding register (for output bytes)
-#define IER 1  // interrupt enable register
-#define IER_RX_ENABLE (1 << 0)
-#define IER_TX_ENABLE (1 << 1)
-#define FCR 2  // FIFO control register
-#define FCR_FIFO_ENABLE (1 << 0)
-#define FCR_FIFO_CLEAR (3 << 1)  // clear the content of the two FIFOs
-#define ISR 2                    // interrupt status register
-#define LCR 3                    // line control register
-#define LCR_EIGHT_BITS (3 << 0)
-#define LCR_BAUD_LATCH (1 << 7)  // special mode to set baud rate
-#define LSR 5                    // line status register
-#define LSR_RX_READY (1 << 0)    // input is waiting to be read from RHR
-#define LSR_TX_IDLE (1 << 5)     // THR can accept another character to send
+#define RHR 0  // Receive Holding Reg (输入字节)
+#define THR 0  // Transmit Holding Reg (输出字节)
+
+#define IER 1                   // Interrupt Enable Reg
+#define IER_RX_ENABLE (1 << 0)  // RHR 中断使能
+#define IER_TX_ENABLE (1 << 1)  // THR 中断使能
+
+#define FCR 2                     // FIFO Control Reg (FIFO 控制寄存器)
+#define FCR_FIFO_ENABLE (1 << 0)  // FIFO 启用使能
+#define FCR_FIFO_CLEAR (3 << 1)   // clear the content of the two FIFOs
+
+#define ISR 2  // Interrupt Status Reg (中断状态寄存器)
+
+#define LCR 3  // Line Control Reg (线路控制寄存器)
+#define LCR_EIGHT_BITS (3 << 0)  // 收发比特长度为8位
+#define LCR_BAUD_LATCH (1 << 7)  // 波特率设置模式
+
+#define LSR 5                  // Line Status Reg (线路状态寄存器)
+#define LSR_RX_READY (1 << 0)  // input is waiting to be read from RHR
+#define LSR_TX_IDLE (1 << 5)   // THR can accept another character to send
 
 #define ReadReg(reg) (*(Reg(reg)))
 #define WriteReg(reg, v) (*(Reg(reg)) = (v))
@@ -51,28 +55,27 @@ void uartstart();
 
 // 初始化 UART 控制器
 void uartinit(void) {
-    // disable interrupts.
+    // 关闭中断
     WriteReg(IER, 0x00);
 
-    // special mode to set baud rate.
+    // 进入 波特率设置模式
     WriteReg(LCR, LCR_BAUD_LATCH);
 
-    // LSB for baud rate of 38.4K.
-    WriteReg(0, 0x03);
+    // 设置波特率为 38.4K
+    WriteReg(0, 0x03);  // LSB(低有效位)
+    WriteReg(1, 0x00);  // MSB(高有效位)
 
-    // MSB for baud rate of 38.4K.
-    WriteReg(1, 0x00);
-
-    // leave set-baud mode,
-    // and set word length to 8 bits, no parity.
+    // 退出 波特率设置模式
+    // 设置数据位为8位, 无校验位
     WriteReg(LCR, LCR_EIGHT_BITS);
 
-    // reset and enable FIFOs.
+    // 重置并启用 FIFOs
     WriteReg(FCR, FCR_FIFO_ENABLE | FCR_FIFO_CLEAR);
 
-    // enable transmit and receive interrupts.
+    // 启用发送中断和接受中断
     WriteReg(IER, IER_TX_ENABLE | IER_RX_ENABLE);
 
+    // 初始化UART锁
     initlock(&uart_tx_lock, "uart");
 }
 
@@ -103,7 +106,7 @@ void uartputc(int c) {
 // alternate version of uartputc() that doesn't
 // use interrupts, for use by kernel printf() and
 // to echo characters. it spins waiting for the uart's
-// output register to be empty.
+// output reg to be empty.
 void uartputc_sync(int c) {
     push_off();
 
@@ -133,7 +136,7 @@ void uartstart() {
         }
 
         if ((ReadReg(LSR) & LSR_TX_IDLE) == 0) {
-            // the UART transmit holding register is full,
+            // the UART transmit holding reg is full,
             // so we cannot give it another byte.
             // it will interrupt when it's ready for a new byte.
             return;

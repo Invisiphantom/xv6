@@ -26,9 +26,7 @@ extern char trampoline[];  // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-// Allocate a page for each process's kernel stack.
-// Map it high in memory, followed by an invalid
-// guard page.
+// 为每个进程分配内核栈, 并映射到内核虚拟内存高地址
 void proc_mapstacks(pagetable_t kpgtbl) {
     struct proc* p;
 
@@ -37,26 +35,26 @@ void proc_mapstacks(pagetable_t kpgtbl) {
         if (pa == 0)
             panic("kalloc");
         uint64 va = KSTACK((int)(p - proc));
+        // 映射内核栈到内核虚拟内存高地址 va=va, pa=pa, size=PGSIZE, perm=可读可写
         kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
     }
 }
 
-// initialize the proc table.
+// 初始化进程表
 void procinit(void) {
     struct proc* p;
 
     initlock(&pid_lock, "nextpid");
     initlock(&wait_lock, "wait_lock");
     for (p = proc; p < &proc[NPROC]; p++) {
-        initlock(&p->lock, "proc");
-        p->state = UNUSED;
-        p->kstack = KSTACK((int)(p - proc));
+        initlock(&p->lock, "proc");           // 初始化进程锁
+        p->state = UNUSED;                    // 未使用状态
+        p->kstack = KSTACK((int)(p - proc));  // 内核栈的KVM地址
     }
 }
 
-// Must be called with interrupts disabled,
-// to prevent race with process being moved
-// to a different CPU.
+// 被调用时必须关闭中断
+// 以防止与其他CPU上的同进程发生竞争
 int cpuid() {
     int id = r_tp();
     return id;
@@ -196,11 +194,10 @@ void proc_freepagetable(pagetable_t pagetable, uint64 sz) {
 // a user program that calls exec("/init")
 // assembled from ../user/initcode.S
 // od -t xC ../user/initcode
-uchar initcode[] = {0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00,
-                    0x00, 0x93, 0x85, 0x35, 0x02, 0x93, 0x08, 0x70, 0x00, 0x73, 0x00,
-                    0x00, 0x00, 0x93, 0x08, 0x20, 0x00, 0x73, 0x00, 0x00, 0x00, 0xef,
-                    0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e, 0x69, 0x74, 0x00, 0x00, 0x24,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+uchar initcode[] = {0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00, 0x00, 0x93,
+                    0x85, 0x35, 0x02, 0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00, 0x93, 0x08,
+                    0x20, 0x00, 0x73, 0x00, 0x00, 0x00, 0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e,
+                    0x69, 0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 // Set up first user process.
 void userinit(void) {
@@ -370,8 +367,7 @@ int wait(uint64 addr) {
                 if (pp->state == ZOMBIE) {
                     // Found one.
                     pid = pp->pid;
-                    if (addr != 0 && copyout(p->pagetable, addr, (char*)&pp->xstate,
-                                             sizeof(pp->xstate)) < 0) {
+                    if (addr != 0 && copyout(p->pagetable, addr, (char*)&pp->xstate, sizeof(pp->xstate)) < 0) {
                         release(&pp->lock);
                         release(&wait_lock);
                         return -1;
@@ -463,9 +459,9 @@ void sched(void) {
     if (intr_get())
         panic("sched interruptible");
 
-    intena = mycpu()->intena; // 暂存中断状态
+    intena = mycpu()->intena;               // 暂存中断状态
     swtch(&p->context, &mycpu()->context);  // 保存当前进程上下文, 并切换到调度器
-    mycpu()->intena = intena; // 恢复中断状态
+    mycpu()->intena = intena;               // 恢复中断状态
 }
 
 // 让出CPU, 并将当前进程状态设置为RUNNABLE

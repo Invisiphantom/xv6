@@ -62,10 +62,11 @@ static inline void w_sip(uint64 x) {
     asm volatile("csrw sip, %0" : : "r"(x));
 }
 
-// Supervisor Interrupt Enable
-#define SIE_SEIE (1L << 9)  // external
-#define SIE_STIE (1L << 5)  // timer
-#define SIE_SSIE (1L << 1)  // software
+// S-mode 中断使能
+#define SIE_SEIE (1L << 9)  // 外部设备中断
+#define SIE_STIE (1L << 5)  // 定时器中断
+#define SIE_SSIE (1L << 1)  // 软中断
+
 static inline uint64 r_sie() {
     uint64 x;
     asm volatile("csrr %0, sie" : "=r"(x));
@@ -124,7 +125,7 @@ static inline void w_mideleg(uint64 x) {
     asm volatile("csrw mideleg, %0" : : "r"(x));
 }
 
-// 异常处理程序地址
+// S-mode 异常处理程序地址
 // Supervisor Trap-Vector Base Address
 // low two bits are mode.
 static inline void w_stvec(uint64 x) {
@@ -137,6 +138,7 @@ static inline uint64 r_stvec() {
     return x;
 }
 
+// S-mode 比较计时寄存器 (计时器中断)
 // Supervisor Timer Comparison Register
 static inline uint64 r_stimecmp() {
     uint64 x;
@@ -172,9 +174,8 @@ static inline void w_pmpaddr0(uint64 x) {
     asm volatile("csrw pmpaddr0, %0" : : "r"(x));
 }
 
-// use riscv's sv39 page table scheme.
+// 使用Sv39分页模式
 #define SATP_SV39 (8L << 60)
-
 #define MAKE_SATP(pagetable) (SATP_SV39 | (((uint64)pagetable) >> 12))
 
 // supervisor address translation and protection;
@@ -262,7 +263,7 @@ static inline uint64 r_ra() {
     return x;
 }
 
-// flush the TLB.
+// 清空TLB, 使页表项写入生效
 static inline void sfence_vma() {
     // the zero, zero means flush all TLB entries.
     asm volatile("sfence.vma zero, zero");
@@ -273,30 +274,28 @@ typedef uint64* pagetable_t;  // 512 PTEs
 
 #endif  // __ASSEMBLER__
 
-#define PGSIZE 4096  // bytes per page
-#define PGSHIFT 12   // bits of offset within a page
+#define PGSIZE 4096  // 每页大小
+#define PGSHIFT 12   // 页内地址偏移
 
+// 对齐到PGSIZE
 #define PGROUNDUP(sz) (((sz) + PGSIZE - 1) & ~(PGSIZE - 1))
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE - 1))
 
-#define PTE_V (1L << 0)  // valid
-#define PTE_R (1L << 1)
-#define PTE_W (1L << 2)
-#define PTE_X (1L << 3)
-#define PTE_U (1L << 4)  // user can access
+#define PTE_V (1L << 0)  // 有效位
+#define PTE_R (1L << 1)  // 可读位
+#define PTE_W (1L << 2)  // 可写位
+#define PTE_X (1L << 3)  // 可执行位
+#define PTE_U (1L << 4)  // 用户访问位
 
-// shift a physical address to the right place for a PTE.
-#define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)  // 将物理地址 转换为 页表项
-#define PTE2PA(pte) (((pte) >> 10) << 12)        // 将页表项 转换为 物理地址
-#define PTE_FLAGS(pte) ((pte) & 0x3FF)
+#define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)  // 用物理地址 构造 页表项
+#define PTE2PA(pte) (((pte) >> 10) << 12)        // 提取页表项 中的 物理地址
+#define PTE_FLAGS(pte) ((pte) & 0x3FF)           // 提取页表项 中的 标志位
 
-// extract the three 9-bit page table indices from a virtual address.
-#define PXMASK 0x1FF  // 9 bits
-#define PXSHIFT(level) (PGSHIFT + (9 * (level)))
+// 提取虚拟地址中的三个9位页表索引
+#define PXMASK 0x1FF                              // 9 bits
+#define PXSHIFT(level) (PGSHIFT + (9 * (level)))  // 每级索引偏移量
 #define PX(level, va) ((((uint64)(va)) >> PXSHIFT(level)) & PXMASK)
 
-// one beyond the highest possible virtual address.
-// MAXVA is actually one bit less than the max allowed by
-// Sv39, to avoid having to sign-extend virtual addresses
-// that have the high bit set.
+// MAXVA 实际上比 Sv39 允许的最大值少一位
+// 以避免处理高位设置时的符号扩展问题
 #define MAXVA (1L << (9 + 9 + 9 + 12 - 1))

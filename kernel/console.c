@@ -169,12 +169,12 @@ void consoleintr(int c) {
 }
 
 void consoleinit(void) {
-    initlock(&cons.lock, "cons");
+    initlock(&cons.lock, "cons"); // 初始化终端锁
 
-    uartinit();
+    uartinit(); // 初始化UART控制器
 
-    // connect read and write system calls
-    // to consoleread and consolewrite.
+    // 设置终端设备的读写函数
+    // 指向consoleread, consolewrite
     devsw[CONSOLE].read = consoleread;
     devsw[CONSOLE].write = consolewrite;
 }

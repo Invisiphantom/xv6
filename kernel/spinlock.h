@@ -1,9 +1,9 @@
-// Mutual exclusion lock.
+
+// 互斥自旋锁
 struct spinlock {
-  uint locked;       // Is the lock held?
+    uint locked;  // 锁是否被占用
 
-  // For debugging:
-  char *name;        // Name of lock.
-  struct cpu *cpu;   // The cpu holding the lock.
+    // debug
+    char* name;       // 锁名称
+    struct cpu* cpu;  // 占用锁的CPU
 };
-

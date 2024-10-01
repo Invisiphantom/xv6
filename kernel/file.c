@@ -13,7 +13,9 @@
 #include "stat.h"
 #include "proc.h"
 
+// 主设备号->设备读写函数
 struct devsw devsw[NDEV];
+
 struct {
     struct spinlock lock;
     struct file file[NFILE];

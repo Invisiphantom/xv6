@@ -33,7 +33,7 @@ struct inode {
     uint addrs[NDIRECT + 1];  // 数据块地址
 };
 
-// map major device number to device functions.
+// 将主设备号映射到设备的读写函数
 struct devsw {
     int (*read)(int, uint64, int);
     int (*write)(int, uint64, int);
@@ -41,4 +41,5 @@ struct devsw {
 
 extern struct devsw devsw[];
 
+// 终端的主设备号 1
 #define CONSOLE 1

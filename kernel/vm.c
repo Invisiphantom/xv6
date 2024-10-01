@@ -6,85 +6,82 @@
 #include "defs.h"
 #include "fs.h"
 
-/*
- * the kernel's page table.
- */
+// 内核页表
 pagetable_t kernel_pagetable;
 
-extern char etext[];  // kernel.ld sets this to end of kernel code.
+// 内核程序代码段结束地址 (kernel.ld)
+extern char etext[];
 
 extern char trampoline[];  // trampoline.S
 
-// Make a direct-map page table for the kernel.
+// 创建内核页表 (大部分直接映射)
 pagetable_t kvmmake(void) {
     pagetable_t kpgtbl;
 
+    // 分配并清空页表空间
     kpgtbl = (pagetable_t)kalloc();
     memset(kpgtbl, 0, PGSIZE);
 
-    // uart registers
+    // UART寄存器 va=UART0, pa=UART0, size=PGSIZE, perm=可读可写
     kvmmap(kpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_W);
 
-    // virtio mmio disk interface
+    // VirtIO设备 va=VIRTIO0, pa=VIRTIO0, size=PGSIZE, perm=可读可写
     kvmmap(kpgtbl, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
 
-    // PLIC
+    // PLIC控制器 va=PLIC, pa=PLIC, size=0x4000000, perm=可读可写
     kvmmap(kpgtbl, PLIC, PLIC, 0x4000000, PTE_R | PTE_W);
 
-    // map kernel text executable and read-only.
+    // 映射内核代码段 (可读, 可执行) va=KERNBASE, pa=KERNBASE, size=etext-KERNBASE
     kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint64)etext - KERNBASE, PTE_R | PTE_X);
 
-    // map kernel data and the physical RAM we'll make use of.
+    // 映射内核其余物理内存 (可读, 可写) va=etext, pa=etext, size=PHYSTOP-etext
     kvmmap(kpgtbl, (uint64)etext, (uint64)etext, PHYSTOP - (uint64)etext, PTE_R | PTE_W);
 
-    // map the trampoline for trap entry/exit to
-    // the highest virtual address in the kernel.
+    // 映射trampoline页到内核最高虚拟地址 va=TRAMPOLINE, pa=trampoline, size=PGSIZE, perm=可读可执行
     kvmmap(kpgtbl, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
 
-    // allocate and map a kernel stack for each process.
+    // 为每个进程分配并映射一个内核栈
     proc_mapstacks(kpgtbl);
 
     return kpgtbl;
 }
 
-// Initialize the one kernel_pagetable
+
+
+// 初始化内核页表
 void kvminit(void) {
     kernel_pagetable = kvmmake();
 }
 
-// Switch h/w page table register to the kernel's page table,
-// and enable paging.
+// 设置satp寄存器, 启用Sv39分页
 void kvminithart() {
-    // wait for any previous writes to the page table memory to finish.
+    // 等待页表初始化的完成写回
     sfence_vma();
-
     w_satp(MAKE_SATP(kernel_pagetable));
-
-    // flush stale entries from the TLB.
     sfence_vma();
 }
 
-// Return the address of the PTE in page table pagetable
-// that corresponds to virtual address va.  If alloc!=0,
-// create any required page-table pages.
-//
-// The risc-v Sv39 scheme has three levels of page-table
-// pages. A page-table page contains 512 64-bit PTEs.
-// A 64-bit virtual address is split into five fields:
-//   39..63 -- must be zero.
-//   30..38 -- 9 bits of level-2 index.
-//   21..29 -- 9 bits of level-1 index.
-//   12..20 -- 9 bits of level-0 index.
-//    0..11 -- 12 bits of byte offset within the page.
+// https://learningos.cn/uCore-Tutorial-Guide-2022S/_images/sv39-full.png
+// Sv39有三级页表, 每个页表页包含512个64位PTE
+//   63:39 -- 全零
+//   38:30 -- 第2级页表索引 (9 bits)
+//   29:21 -- 第1级页表索引 (9 bits)
+//   20:12 -- 第0级页表索引 (9 bits)
+//   11:0  -- 页内偏移 (12 bits)
 pte_t* walk(pagetable_t pagetable, uint64 va, int alloc) {
     if (va >= MAXVA)
         panic("walk");
 
     for (int level = 2; level > 0; level--) {
+        // 获取pagetable页表中, va的第level级索引项
         pte_t* pte = &pagetable[PX(level, va)];
-        if (*pte & PTE_V) {
+
+        // 如果是有效项, 则获取下一级页表
+        if (*pte & PTE_V)
             pagetable = (pagetable_t)PTE2PA(*pte);
-        } else {
+
+        // 如果不是有效项, 且alloc为真, 则创建新页表
+        else {
             if (!alloc || (pagetable = (pde_t*)kalloc()) == 0)
                 return 0;
             memset(pagetable, 0, PGSIZE);
@@ -115,40 +112,44 @@ uint64 walkaddr(pagetable_t pagetable, uint64 va) {
     return pa;
 }
 
-// add a mapping to the kernel page table.
-// only used when booting.
-// does not flush TLB or enable paging.
+// 添加一个映射到内核页表 (在booting时使用)
+// 不刷新TLB或启用分页
 void kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm) {
     if (mappages(kpgtbl, va, sz, pa, perm) != 0)
         panic("kvmmap");
 }
 
-// Create PTEs for virtual addresses starting at va that refer to
-// physical addresses starting at pa.
-// va and size MUST be page-aligned.
-// Returns 0 on success, -1 if walk() couldn't
-// allocate a needed page-table page.
+// pagetable: 页表地址
+// va: 开始的虚拟地址
+// size: 要映射的总大小
+// pa: 开始的物理地址
+// perm: 页表项的权限
+// 成功: 0   失败: -1
 int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm) {
     uint64 a, last;
     pte_t* pte;
 
+    // 检查页对齐以及长度非零
     if ((va % PGSIZE) != 0)
         panic("mappages: va not aligned");
-
     if ((size % PGSIZE) != 0)
         panic("mappages: size not aligned");
-
     if (size == 0)
         panic("mappages: size");
 
     a = va;
     last = va + size - PGSIZE;
     for (;;) {
+        // 获取va对应的页表项 (如果不存在, 则创建)
         if ((pte = walk(pagetable, a, 1)) == 0)
             return -1;
+        // 如果页表项已有效, 则报错
         if (*pte & PTE_V)
             panic("mappages: remap");
+        // 设置页表项 (物理地址 + 权限位 + 有效位)
         *pte = PA2PTE(pa) | perm | PTE_V;
+
+        // 继续设置下一页
         if (a == last)
             break;
         a += PGSIZE;
