@@ -1,12 +1,21 @@
 
-// buffer cache是buf结构体链表, 用于缓存磁盘块内容
-// 在内存中缓存磁盘块减少了磁盘读取次数, 也为多个进程使用的磁盘块提供了同步点
+// 文件系统实现:
+//  + FS.img: 文件系统映像 (mkfs.c)
+//  + Dev+blockno: 虚拟硬盘块设备 (virtio_disk.c)
+//  + Bcache: 缓存链环 (bio.c)
+//  + Log: 多步更新的崩溃恢复 (log.c)
+//  + Inodes: inode分配器, 读取, 写入, 元数据 (fs.c)
+//  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
+//  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
+
+// buffer cache是buf结构体链表, 用于缓存硬盘块内容
+// 在内存中缓存硬盘块减少了硬盘读取次数, 也为多个进程使用的硬盘块提供了同步点
 
 // 同时只有一个进程可以使用一个缓存
 // 所以不要超过必要保持缓存的时间
 
-// bread: 读取磁盘块内容到缓存
-// bwrite: 将缓存内容写回磁盘
+// bread: 读取硬盘块内容到缓存
+// bwrite: 将缓存内容写回硬盘
 // brelse: 释放缓存 (不要在调用brelse后使用缓存)
 
 #include "types.h"
@@ -55,7 +64,7 @@ static struct buf* bget(uint dev, uint blockno) {
 
     acquire(&bcache.lock);  // 获取缓存锁
 
-    // 从链环头部开始 查找该磁盘块是否已有缓存
+    // 从链环头部开始 查找该硬盘块是否已有缓存
     for (b = bcache.head.next; b != &bcache.head; b = b->next) {
         if (b->dev == dev && b->blockno == blockno) {
             b->refcnt++;
@@ -87,7 +96,7 @@ struct buf* bread(uint dev, uint blockno) {
     // 获取blockno对应的缓存
     b = bget(dev, blockno);
 
-    // 如果是新的无效缓存, 则从磁盘读取
+    // 如果是新的无效缓存, 则从硬盘读取
     if (!b->valid) {
         virtio_disk_rw(b, 0);
         b->valid = 1;
@@ -95,7 +104,7 @@ struct buf* bread(uint dev, uint blockno) {
     return b;
 }
 
-// Write b's contents to disk.  Must be locked.
+// 将缓冲链块b的内容写入硬盘 (必须已被锁定)
 void bwrite(struct buf* b) {
     if (!holdingsleep(&b->lock))
         panic("bwrite");
@@ -109,13 +118,12 @@ void brelse(struct buf* b) {
     if (!holdingsleep(&b->lock))
         panic("brelse");
 
-    
-    releasesleep(&b->lock); // 释放块锁
+    releasesleep(&b->lock);  // 释放块锁
 
-    acquire(&bcache.lock); // 获取缓存锁
-    
-    b->refcnt--; // 引用减1
-    
+    acquire(&bcache.lock);  // 获取缓存锁
+
+    b->refcnt--;  // 引用减1
+
     if (b->refcnt == 0) {
         // 如果引用为0, 则将缓存移动到LRU列表的头部
         b->next->prev = b->prev;

@@ -77,6 +77,7 @@ struct proc* myproc(void) {
     return p;
 }
 
+// 分配新的pid
 int allocpid() {
     int pid;
 
@@ -88,35 +89,33 @@ int allocpid() {
     return pid;
 }
 
-// Look in the process table for an UNUSED proc.
-// If found, initialize state required to run in the kernel,
-// and return with p->lock held.
-// If there are no free procs, or a memory allocation fails, return 0.
+// 在进程表中查找UNUSED进程
+// 如果找到, 初始化内核运行所需的状态并返回 (持有p->lock的锁)
+// 如果没有空闲进程, 或内存分配失败, 返回0
 static struct proc* allocproc(void) {
     struct proc* p;
 
     for (p = proc; p < &proc[NPROC]; p++) {
         acquire(&p->lock);
-        if (p->state == UNUSED) {
-            goto found;
-        } else {
+        if (p->state == UNUSED)
+            goto found;  // 找到空闲进程
+        else
             release(&p->lock);
-        }
     }
     return 0;
 
 found:
-    p->pid = allocpid();
-    p->state = USED;
+    p->pid = allocpid();  // 分配新的pid
+    p->state = USED;      // 更新状态为USED
 
-    // Allocate a trapframe page.
+    // 分配 trapframe 页
     if ((p->trapframe = (struct trapframe*)kalloc()) == 0) {
         freeproc(p);
         release(&p->lock);
         return 0;
     }
 
-    // An empty user page table.
+    // 配置用户态页表映射
     p->pagetable = proc_pagetable(p);
     if (p->pagetable == 0) {
         freeproc(p);
@@ -124,11 +123,9 @@ found:
         return 0;
     }
 
-    // Set up new context to start executing at forkret,
-    // which returns to user space.
     memset(&p->context, 0, sizeof(p->context));
-    p->context.ra = (uint64)forkret;
-    p->context.sp = p->kstack + PGSIZE;
+    p->context.ra = (uint64)forkret;     // 设置上下文返回地址为forkret
+    p->context.sp = p->kstack + PGSIZE;  // 栈从高地址向低地址增长
 
     return p;
 }
@@ -153,27 +150,36 @@ static void freeproc(struct proc* p) {
     p->state = UNUSED;
 }
 
-// Create a user page table for a given process, with no user memory,
-// but with trampoline and trapframe pages.
+// 用户虚拟内存布局 (proc.c->proc_pagetable)
+// >低地址
+//   text
+//   original data and bss
+//   fixed-size stack
+//   expandable heap
+//   ...
+//   TRAPFRAME (p->trapframe)
+//   TRAMPOLINE (内核代码段trampoline.S)
+// >高地址
+
+// 对于给定的进程创建一个用户页表
+// 没有用户内存, 但有trampoline和trapframe页
 pagetable_t proc_pagetable(struct proc* p) {
     pagetable_t pagetable;
 
-    // An empty page table.
+    // 分配并清空一个页表
     pagetable = uvmcreate();
     if (pagetable == 0)
         return 0;
 
-    // map the trampoline code (for system call return)
-    // at the highest user virtual address.
-    // only the supervisor uses it, on the way
-    // to/from user space, so not PTE_U.
+    // 映射 trampoline 页到最高用户虚拟地址 (用于系统调用返回)
+    // TRAMPLINE跳转处理程序  va=TRAMPOLINE, pa=trampoline.S, size=PGSIZE, perm=内核可读可执行
     if (mappages(pagetable, TRAMPOLINE, PGSIZE, (uint64)trampoline, PTE_R | PTE_X) < 0) {
         uvmfree(pagetable, 0);
         return 0;
     }
 
-    // map the trapframe page just below the trampoline page, for
-    // trampoline.S.
+    // 将 TRAPFRAME 页映射到 TRAMPLINE 页的相邻低地址
+    // TRAPFRAME跳转暂存区   va=TRAPFRAME, pa=p->trapframe, size=PGSIZE, perm=内核可读可写
     if (mappages(pagetable, TRAPFRAME, PGSIZE, (uint64)(p->trapframe), PTE_R | PTE_W) < 0) {
         uvmunmap(pagetable, TRAMPOLINE, 1, 0);
         uvmfree(pagetable, 0);
@@ -191,33 +197,34 @@ void proc_freepagetable(pagetable_t pagetable, uint64 sz) {
     uvmfree(pagetable, sz);
 }
 
-// a user program that calls exec("/init")
-// assembled from ../user/initcode.S
-// od -t xC ../user/initcode
+// od -t xC user/initcode
+// 一段用户态程序, 调用exec("/init") <user/initcode.S>
 uchar initcode[] = {0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00, 0x00, 0x93,
                     0x85, 0x35, 0x02, 0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00, 0x93, 0x08,
                     0x20, 0x00, 0x73, 0x00, 0x00, 0x00, 0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e,
                     0x69, 0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-// Set up first user process.
+// 初始化第一个用户进程
 void userinit(void) {
     struct proc* p;
 
+    // 获取新进程 (持锁 USED 页表 上下文)
     p = allocproc();
     initproc = p;
 
-    // allocate one user page and copy initcode's instructions
-    // and data into it.
+    // 分配一个用户页, 并将initcode的指令和数据复制到其中
     uvmfirst(p->pagetable, initcode, sizeof(initcode));
     p->sz = PGSIZE;
 
-    // prepare for the very first "return" from kernel to user.
-    p->trapframe->epc = 0;      // user program counter
-    p->trapframe->sp = PGSIZE;  // user stack pointer
+    // 准备从内核态返回到用户态
+    p->trapframe->epc = 0;      // 用户程序计数器
+    p->trapframe->sp = PGSIZE;  // 用户栈指针
 
+    // 设置进程名和当前工作目录
     safestrcpy(p->name, "initcode", sizeof(p->name));
     p->cwd = namei("/");
 
+    // 更新进程状态为RUNNABLE
     p->state = RUNNABLE;
 
     release(&p->lock);
@@ -290,8 +297,7 @@ int fork(void) {
     return pid;
 }
 
-// Pass p's abandoned children to init.
-// Caller must hold wait_lock.
+// 将p的弃子交给init (调用者必须持有wait_lock)
 void reparent(struct proc* p) {
     struct proc* pp;
 
@@ -328,7 +334,7 @@ void exit(int status) {
 
     acquire(&wait_lock);
 
-    // Give any children to init.
+    // 将p的弃子交给init
     reparent(p);
 
     // Parent might be sleeping in wait().
@@ -341,7 +347,7 @@ void exit(int status) {
 
     release(&wait_lock);
 
-    // Jump into the scheduler, never to return.
+    // 跳转到sched(), 不会返回
     sched();
     panic("zombie exit");
 }
@@ -482,14 +488,13 @@ void forkret(void) {
     release(&myproc()->lock);
 
     if (first) {
-        // File system initialization must be run in the context of a
-        // regular process (e.g., because it calls sleep), and thus cannot
-        // be run from main().
+        // 文件系统初始化必须在常规进程的上下文中运行(例如, 因为它调用sleep)
+        // 因此不能直接在main()中执行
         fsinit(ROOTDEV);
 
         first = 0;
         // ensure other cores see first=0.
-        __sync_synchronize();
+        __sync_synchronize();  // 内存屏障
     }
 
     usertrapret();

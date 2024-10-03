@@ -32,7 +32,7 @@ void acquire(struct spinlock* lk) {
     // past this point, to ensure that the critical section's memory
     // references happen strictly after the lock is acquired.
     // On RISC-V, this emits a fence instruction.
-    __sync_synchronize();
+    __sync_synchronize();// 内存屏障
 
     // Record info about lock acquisition for holding() and debugging.
     lk->cpu = mycpu();
@@ -51,7 +51,7 @@ void release(struct spinlock* lk) {
     // and that loads in the critical section occur strictly before
     // the lock is released.
     // On RISC-V, this emits a fence instruction.
-    __sync_synchronize();
+    __sync_synchronize();// 内存屏障
 
     // Release the lock, equivalent to lk->locked = 0.
     // This code doesn't use a C assignment, since the C standard

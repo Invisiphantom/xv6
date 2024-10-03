@@ -39,7 +39,7 @@
 #define KERNBASE 0x80000000L
 #define PHYSTOP (KERNBASE + 128 * 1024 * 1024)
 
-// 内核虚拟内存布局
+// 内核虚拟内存布局 (vm.c->kvmmake)
 // >低地址
 //      UART
 //      VirtIO
@@ -57,7 +57,7 @@
 //      TRAMPOLINE
 // >高地址
 
-// 用户虚拟内存布局
+// 用户虚拟内存布局 (proc.c->proc_pagetable)
 // >低地址
 //   text
 //   original data and bss

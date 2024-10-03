@@ -4,6 +4,7 @@
             "name": "Linux",
             "intelliSenseMode": "linux-gcc-x64",
             "compilerPath": "/usr/bin/riscv64-linux-gnu-gcc",
+            "includePath": ["${workspaceFolder}/kernel"],
             "compileCommands": "${workspaceFolder}/.vscode/compile_commands.json"
         }
     ],

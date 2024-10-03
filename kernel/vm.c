@@ -183,8 +183,7 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free) {
     }
 }
 
-// create an empty user page table.
-// returns 0 if out of memory.
+// 分配并清空一个用户页表
 pagetable_t uvmcreate() {
     pagetable_t pagetable;
     pagetable = (pagetable_t)kalloc();
@@ -194,10 +193,8 @@ pagetable_t uvmcreate() {
     return pagetable;
 }
 
-// Load the user initcode into address 0 of pagetable,
-// for the very first process.
-// sz must be less than a page.
-void uvmfirst(pagetable_t pagetable, uchar* src, uint sz) {
+// 加载用户态initcode到页表的地址0, 用于第一个进程
+void uvmfirst(pagetable_t pagetable, uchar* initcode, uint sz) {
     char* mem;
 
     if (sz >= PGSIZE)
@@ -205,7 +202,7 @@ void uvmfirst(pagetable_t pagetable, uchar* src, uint sz) {
     mem = kalloc();
     memset(mem, 0, PGSIZE);
     mappages(pagetable, 0, PGSIZE, (uint64)mem, PTE_W | PTE_R | PTE_X | PTE_U);
-    memmove(mem, src, sz);
+    memmove(mem, initcode, sz);
 }
 
 // Allocate PTEs and physical memory to grow process from oldsz to

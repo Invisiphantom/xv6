@@ -3,6 +3,11 @@
         "memlayout.h": "c",
         "fs.h": "c",
         "proc.h": "c",
-        "assert.h": "c"
+        "assert.h": "c",
+        "defs.h": "c",
+        "string.h": "c",
+        "types.h": "c",
+        "stat.h": "c",
+        "buf.h": "c"
     }
 }

@@ -68,7 +68,7 @@ char* strncpy(char* s, const char* t, int n) {
     return os;
 }
 
-// Like strncpy but guaranteed to NUL-terminate.
+// 将t复制到s, 最多n个字符, 并保证s以null结尾
 char* safestrcpy(char* s, const char* t, int n) {
     char* os;
 

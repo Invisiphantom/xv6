@@ -57,7 +57,7 @@ void usertrap(void) {
 
         syscall();  // 处理系统调用
     } else if ((which_dev = devintr()) != 0) {
-        // 处理外部设备中断 (键盘, 磁盘, 定时器)
+        // 处理外部设备中断 (键盘, 硬盘, 定时器)
     } else {
         printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
         printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
@@ -176,7 +176,7 @@ int devintr() {
         if (irq == UART0_IRQ)
             uartintr();  // 处理键盘输入
         else if (irq == VIRTIO0_IRQ)
-            virtio_disk_intr();  // 处理磁盘中断
+            virtio_disk_intr();  // 处理硬盘中断
         else if (irq)
             printf("unexpected interrupt irq=%d\n", irq);
 

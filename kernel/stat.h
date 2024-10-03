@@ -5,7 +5,7 @@
 #define T_DEVICE 3  // 设备
 
 struct stat {
-    int dev;      // 所属磁盘设备
+    int dev;      // 所属硬盘设备
     uint ino;     // Inode编号
     short type;   // 文件类型
     short nlink;  // 硬链接数

@@ -282,9 +282,9 @@ typedef uint64* pagetable_t;  // 512 PTEs
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE - 1))
 
 #define PTE_V (1L << 0)  // 有效位
-#define PTE_R (1L << 1)  // 可读位
-#define PTE_W (1L << 2)  // 可写位
-#define PTE_X (1L << 3)  // 可执行位
+#define PTE_R (1L << 1)  // 内核可读位
+#define PTE_W (1L << 2)  // 内核可写位
+#define PTE_X (1L << 3)  // 内核可执行位
 #define PTE_U (1L << 4)  // 用户访问位
 
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)  // 用物理地址 构造 页表项

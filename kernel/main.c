@@ -28,25 +28,25 @@ void main() {
         plicinit();      // 设置外部中断优先级 (UART VirtIO)
         plicinithart();  // 当前CPU 启用UART和VirtIO中断
 
-        binit();             // cache链环初始化
+        binit();             // 初始化cache链环
         iinit();             // inode table
         fileinit();          // file table
-        virtio_disk_init();  // emulated hard disk
-        
-        userinit();          // first user process
+        virtio_disk_init();  // 初始化virtio硬盘
 
-        __sync_synchronize();  // 同步内存
+        userinit();  // 初始化第一个用户进程
+
+        __sync_synchronize();  // 内存屏障
 
         started = 1;
     } else {
         while (started == 0)
             ;
-        __sync_synchronize();  // 同步内存
+        __sync_synchronize();  // 内存屏障
         printf("hart %d starting\n", cpuid());
         kvminithart();   // 当前CPU 启用Sv39分页
         trapinithart();  // 当前CPU 设置stvec跳转到kernelvec.S
         plicinithart();  // 当前CPU 启用UART和VirtIO中断
     }
 
-    scheduler();
+    scheduler();  // 启动调度!
 }

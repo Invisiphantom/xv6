@@ -1,3 +1,13 @@
+
+// 文件系统实现:
+//  + FS.img: 文件系统映像 (mkfs.c)
+//  + Dev+blockno: 虚拟硬盘块设备 (virtio_disk.c)
+//  + Bcache: 缓存链环 (bio.c)
+//  + Log: 多步更新的崩溃恢复 (log.c)
+//  + Inodes: inode分配器, 读取, 写入, 元数据 (fs.c)
+//  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
+//  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
+
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
@@ -7,6 +17,7 @@
 #include "fs.h"
 #include "buf.h"
 
+// https://www.cnblogs.com/KatyuMarisaBlog/p/14385792.html
 // Simple logging that allows concurrent FS system calls.
 //
 // A log transaction contains the updates of multiple FS system
@@ -51,13 +62,15 @@ struct log log;
 static void recover_from_log(void);
 static void commit();
 
+// 初始化日志 (fs.c->fsinit)
 void initlog(int dev, struct superblock* sb) {
+    // logheader结构体大小不能超过一个块
     if (sizeof(struct logheader) >= BSIZE)
         panic("initlog: too big logheader");
 
-    initlock(&log.lock, "log");
-    log.start = sb->logstart;
-    log.size = sb->nlog;
+    initlock(&log.lock, "log");  // 初始化日志锁
+    log.start = sb->logstart;    // 第一个日志块的块号
+    log.size = sb->nlog;         // 日志块数量
     log.dev = dev;
     recover_from_log();
 }
@@ -101,7 +114,7 @@ static void write_head(void) {
     for (i = 0; i < log.lh.n; i++) {
         hb->block[i] = log.lh.block[i];
     }
-    bwrite(buf);
+    bwrite(buf);  // 写入硬盘
     brelse(buf);
 }
 
@@ -167,7 +180,7 @@ static void write_log(void) {
         struct buf* to = bread(log.dev, log.start + tail + 1);  // log block
         struct buf* from = bread(log.dev, log.lh.block[tail]);  // cache block
         memmove(to->data, from->data, BSIZE);
-        bwrite(to);  // write the log
+        bwrite(to);  // 将日志块写入硬盘
         brelse(from);
         brelse(to);
     }

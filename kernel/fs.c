@@ -1,12 +1,12 @@
 
-
 // 文件系统实现:
-//  + Dev+blockno: 原始磁盘块
-//  + Bcache: 缓存链环
-//  + Log: 多步更新的崩溃恢复
-//  + Inodes: inode分配器, 读取, 写入, 元数据
-//  + Directories: 具有特殊内容的inode(其他inode的列表)
-//  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c
+//  + FS.img: 文件系统映像 (mkfs.c)
+//  + Dev+blockno: 虚拟硬盘块设备 (virtio_disk.c)
+//  + Bcache: 缓存链环 (bio.c)
+//  + Log: 多步更新的崩溃恢复 (log.c)
+//  + Inodes: inode分配器, 读取, 写入, 元数据 (fs.c)
+//  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
+//  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
 
 // 此文件包含低层次的文件系统操作
 // 高层次的系统调用实现在sysfile.c
@@ -25,7 +25,7 @@
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-// 每个磁盘设备都应该有一个超级块
+// 每个硬盘设备都应该有一个超级块
 // 但我们只运行一个设备
 struct superblock sb;
 
@@ -40,10 +40,11 @@ static void readsb(int dev, struct superblock* sb) {
 
 // 初始化文件系统
 void fsinit(int dev) {
+    // 校验文件系统
     readsb(dev, &sb);
     if (sb.magic != FSMAGIC)
         panic("invalid file system");
-    initlog(dev, &sb);
+    initlog(dev, &sb); // 初始化日志
 }
 
 // 清空一个块 (dev:设备号 bno:块号)
@@ -83,7 +84,7 @@ static uint balloc(uint dev) {
     return 0;
 }
 
-// Free a disk block.
+// 释放一个硬盘块
 static void bfree(int dev, uint b) {
     struct buf* bp;
     int bi, m;
@@ -208,7 +209,7 @@ struct inode* ialloc(uint dev, short type) {
     return 0;
 }
 
-// 将修改后在内存中的inode信息复制到磁盘
+// 将修改后在内存中的inode信息复制到硬盘
 // Must be called after every change to an ip->xxx field
 // that lives on disk.
 // Caller must hold ip->lock.
