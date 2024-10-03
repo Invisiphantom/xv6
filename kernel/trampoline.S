@@ -28,7 +28,7 @@ uservec:
         csrw sscratch, a0
 
         # 每个进程都有一个独立的p->trapframe内存区域
-        # 但是在每个进程的用户页表中，它映射到相同的虚拟地址(TRAPFRAME)
+        # 但是在每个进程的用户页表中, 它映射到相同的虚拟地址(TRAPFRAME)
         li a0, TRAPFRAME
         
         # 保存用户寄存器到 TRAPFRAME
@@ -79,7 +79,7 @@ uservec:
         # 获取内核态页表地址 from p->trapframe->kernel_satp.
         ld t1, 0(a0)
 
-        # 等待上述内存操作完成，此时还在使用用户页表
+        # 等待上述内存操作完成, 此时还在使用用户页表
         sfence.vma zero, zero
 
         # 加载satp为内核态页表

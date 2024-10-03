@@ -82,7 +82,7 @@ struct virtq_used_elem {
 struct virtq_used {
     uint16 flags;                     // 始终为零
     uint16 idx;                       // 设备添加 ring[] 条目时递增
-    struct virtq_used_elem ring[NUM]; // 已使用条目，包含状态信息
+    struct virtq_used_elem ring[NUM]; // 已使用条目, 包含状态信息
 };
 
 // these are specific to virtio block devices, e.g. disks,

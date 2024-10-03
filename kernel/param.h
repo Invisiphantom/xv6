@@ -8,8 +8,8 @@
 #define NDEV 10                    // 最大主设备号
 #define ROOTDEV 1                  // 根目录设备号
 #define MAXARG 32                  // max exec arguments
-#define MAXOPBLOCKS 10             // max of blocks any FS op writes 文件系统操作写入的最大块数
-#define LOGSIZE (MAXOPBLOCKS * 3)  // max data blocks in on-disk log 硬盘日志的最多块数
+#define MAXOPBLOCKS 10             // 文件系统单次可写入的最大块数
+#define LOGSIZE (MAXOPBLOCKS * 3)  // 硬盘中的最大日志块数
 #define NBUF (MAXOPBLOCKS * 3)     // size of disk block cache
 #define FSSIZE 2000                // size of file system in blocks
 #define MAXPATH 128                // maximum file path name

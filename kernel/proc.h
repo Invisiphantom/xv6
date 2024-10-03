@@ -22,7 +22,7 @@ struct context {
 
 // 每个CPU的状态
 struct cpu {
-  struct proc *proc;          // 当前CPU上运行的进程，或者为空
+  struct proc *proc;          // 当前CPU上运行的进程, 或者为空
   struct context context;     // 当前保存的调度器上下文 scheduler() <proc.c>
   int noff;                   // push_off 中断禁用计数
   int intena;                 // 中断在 push_off 之前是否被启用
@@ -90,15 +90,15 @@ struct proc {
 
   // 当使用下述变量时必须持有p->lock
   enum procstate state;        // 当前进程状态
-  void *chan;                  // 如果非零，则进程正在 chan 上睡眠
-  int killed;                  // 如果非零，则进程已被终止
-  int xstate;                  // 退出状态，将返回给父进程的 wait
+  void *chan;                  // 如果非零, 则进程正在 chan 上睡眠
+  int killed;                  // 如果非零, 则进程已被终止
+  int xstate;                  // 退出状态, 将返回给父进程的 wait
   int pid;                     // Process ID
 
   // 当使用下述变量时必须持有wait_lock
   struct proc *parent;         // 父进程
 
-  // 下述变量是进程私有的，所以不需要持有p->lock
+  // 下述变量是进程私有的, 所以不需要持有p->lock
   uint64 kstack;               // 内核栈的虚拟地址
   uint64 sz;                   // 进程内存大小(字节)
   pagetable_t pagetable;       // 用户页表

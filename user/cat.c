@@ -23,7 +23,7 @@ void cat(int fd) {
 int main(int argc, char* argv[]) {
     int fd, i;
 
-    // 如果没有参数，则打印标准输入
+    // 如果没有参数, 则打印标准输入
     if (argc <= 1) {
         cat(0);  // stdin
         exit(0);

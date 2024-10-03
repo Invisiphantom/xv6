@@ -297,7 +297,7 @@ void virtio_disk_intr() {
 
     // 设备在被告知 此中断处理完成之前, 不会产生新中断
     // 这可能与设备写入新条目到 "used" 环发生竞争
-    // 在这种情况下，我们可能在此中断中处理新完成的条目
+    // 在这种情况下, 我们可能在此中断中处理新完成的条目
     // 而在下一此中断中没有任何事情要做, 这并无害
     *R(VIRTIO_MMIO_INTERRUPT_ACK) = *R(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3;
 

@@ -137,12 +137,14 @@ void brelse(struct buf* b) {
     release(&bcache.lock);
 }
 
+// 增加缓存链块的引用
 void bpin(struct buf* b) {
     acquire(&bcache.lock);
     b->refcnt++;
     release(&bcache.lock);
 }
 
+// 减少缓存链块的引用
 void bunpin(struct buf* b) {
     acquire(&bcache.lock);
     b->refcnt--;
