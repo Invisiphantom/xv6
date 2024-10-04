@@ -7,38 +7,36 @@
 void main();
 void timerinit();
 
-// entry.S 需要给每个CPU一个栈 (.bss段)
+// entry.S 需要给每个CPU一个栈
 __attribute__((aligned(16))) char stack0[4096 * NCPU];
 
-// entry.S 跳转到此处 (M-mode) (sp->stack0)
+// entry.S 跳转到此处 (M-mode)
 void start() {
-    // 将MPP位 置1, 使得mret切换为S-mode
+    // 将MPP位设置为01, 使得mret切换为S-mode
     uint64 x = r_mstatus();
-    x &= ~MSTATUS_MPP_MASK; // 清除MPP位
-    x |= MSTATUS_MPP_S; // 设置MPP位为S-mode
+    x &= ~MSTATUS_MPP_MASK;  // 清除MPP位
+    x |= MSTATUS_MPP_S;      // 设置MPP位为S-mode
     w_mstatus(x);
 
     // 设置mepc为main(), 用于mret跳转
-    // requires gcc -mcmodel=medany
+    // 需要内存模型为 gcc -mcmodel=medany
     w_mepc((uint64)main);
 
-    // 暂时关闭页表, 直接访问物理地址
-    w_satp(0);
+    w_satp(0);          // 关闭页表, 直接访问物理地址
+    w_medeleg(0xffff);  // 将所有异常委托给S-mode
+    w_mideleg(0xffff);  // 将所有中断委托给S-mode
 
-    w_medeleg(0xffff); // 将所有异常委托给S-mode
-    w_mideleg(0xffff); // 将所有中断委托给S-mode
-
-    // 启用S-mode的外部中断, 定时器中断, 软中断
+    // 启用S-mode 外部中断, 定时器中断, 软中断
     w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 
-    // 设置PMP, 允许S-mode访问所有物理内存
+    // 允许S-mode访问所有物理内存
     w_pmpaddr0(0x3fffffffffffffull);
     w_pmpcfg0(0xf);
 
     // 启用定时器中断
     timerinit();
 
-    // 将每个CPU的hartid保存在tp寄存器中, 用于cpuid()
+    // 将每个CPU的hartid保存到tp寄存器中, 用于cpuid()
     int id = r_mhartid();
     w_tp(id);
 

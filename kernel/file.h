@@ -1,4 +1,16 @@
 
+// 文件系统实现:
+//  + FS.img: 文件系统映像 (mkfs.c)
+//  + Dev+blockno: 虚拟硬盘块设备 (virtio_disk.c)
+//  + Bcache: 缓存链环 (bio.c)
+//  + Log: 多步更新的崩溃恢复 (log.c)
+//  + Inodes: inode分配器, 读取, 写入, 元数据 (fs.c)
+//  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
+//  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
+
+// 硬盘布局
+// [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
+// [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
 
 struct file {
     enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;  // 文件类型
@@ -6,31 +18,31 @@ struct file {
     char readable;                                        // 可读
     char writable;                                        // 可写
     struct pipe* pipe;                                    // FD_PIPE
-    struct inode* ip;                                     // FD_INODE and FD_DEVICE
+    struct minode* ip;                                     // FD_INODE and FD_DEVICE
     uint off;                                             // FD_INODE
     short major;                                          // FD_DEVICE
 };
 
 #define major(dev) ((dev) >> 16 & 0xFFFF)      // 获取主设备号 (高16位)
 #define minor(dev) ((dev) & 0xFFFF)            // 获取次设备号 (低16位)
-#define mkdev(m, n) ((uint)((m) << 16 | (n)))  // 创建设备号 (高+低)
+#define mkdev(m, n) ((uint)((m) << 16 | (n)))  // 创建设备号 (主+次)
 
-// 内存中的inode结构体
-struct inode {
+// inode结构体 (内存中)
+struct minode {
     uint dev;   // 设备号(主+次)
     uint inum;  // inode编号
     int ref;    // 引用计数
 
     struct sleeplock lock;  // 保护下面的所有内容
-    int valid;              // inode是否已经从硬盘读取
+    int valid;              // inode是否已从硬盘读取
 
-    // 硬盘inode的类型拷贝(fs.h)
-    short type;               // 文件类型
+    // inode (硬盘中的类型) (fs.h)
+    short type;               // 文件类型 (0:空闲 1:目录 2:文件 3:设备)
     short major;              // 主设备号
     short minor;              // 次设备号
     short nlink;              // 硬链接数
-    uint size;                // 文件大小
-    uint addrs[NDIRECT + 1];  // 数据块地址
+    uint size;                // 文件总大小 (字节)
+    uint addrs[NDIRECT + 1];  // 文件所占有的块号 (直接块+间接索引块)
 };
 
 // 将主设备号映射到设备的读写函数

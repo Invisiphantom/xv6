@@ -6,7 +6,7 @@
 
 volatile static int started = 0;
 
-// start.c 将M-mode切换为S-mode后, 跳转到此处
+// start.c 跳转到此处 (S-mode)
 void main() {
     if (cpuid() == 0) {
         consoleinit();  // 初始化终端 (UART)
@@ -16,9 +16,9 @@ void main() {
         printf("xv6 kernel is booting\n");
         printf("\n");
 
-        kinit();        // 初始化内存分配器
+        kinit();        // 初始化kalloc
         kvminit();      // 初始化内核页表
-        kvminithart();  // 当前CPU 启用Sv39分页
+        kvminithart();  // 当前CPU 设置satp 启用Sv39分页
 
         procinit();  // 初始化进程表
 
@@ -43,7 +43,7 @@ void main() {
             ;
         __sync_synchronize();  // 内存屏障
         printf("hart %d starting\n", cpuid());
-        kvminithart();   // 当前CPU 启用Sv39分页
+        kvminithart();   // 当前CPU 设置satp 启用Sv39分页
         trapinithart();  // 当前CPU 设置stvec跳转到kernelvec.S
         plicinithart();  // 当前CPU 启用UART和VirtIO中断
     }

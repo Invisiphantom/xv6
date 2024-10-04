@@ -4,7 +4,7 @@
 #define NCPU 8                     // CPU的最大数量
 #define NOFILE 16                  // open files per process
 #define NFILE 100                  // open files per system
-#define NINODE 50                  // maximum number of active i-nodes
+#define NINODE 50                  // 活跃inode的最大数量 (最大inode数为200)
 #define NDEV 10                    // 最大主设备号
 #define ROOTDEV 1                  // 根目录设备号
 #define MAXARG 32                  // max exec arguments

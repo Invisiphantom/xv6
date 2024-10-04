@@ -49,6 +49,7 @@ void* memcpy(void* dst, const void* src, uint n) {
     return memmove(dst, src, n);
 }
 
+// 比较字符串s和t的前n个字符
 int strncmp(const char* p, const char* q, uint n) {
     while (n > 0 && *p && *p == *q)
         n--, p++, q++;

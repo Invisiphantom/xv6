@@ -8,6 +8,10 @@
 //  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
 //  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
 
+// 硬盘布局
+// [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
+// [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
+
 // buffer cache是buf结构体链表, 用于缓存硬盘块内容
 // 在内存中缓存硬盘块减少了硬盘读取次数, 也为多个进程使用的硬盘块提供了同步点
 

@@ -8,33 +8,35 @@
 //  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
 //  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
 
+// 硬盘布局
+// [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
+// [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
+
 // 硬盘文件系统格式
 // 内核和用户程序都使用此头文件
 
 #define ROOTINO 1   // 根目录inode编号
 #define BSIZE 1024  // 块大小
 
-// 硬盘布局
-// [ boot block | super block | log | inode blocks | free bit map | data blocks ]
 #define FSMAGIC 0x10203040
 struct superblock {
     uint magic;       // 魔数=FSMAGIC
-    uint size;        // 文件系统总块数
-    uint nblocks;     // 数据块数量
-    uint ninodes;     // inode数量
-    uint nlog;        // 日志块数量
-    uint logstart;    // 第一个日志块的块号
-    uint inodestart;  // 第一个inode块的块号
-    uint bmapstart;   // 第一个位图块的块号
+    uint size;        // 文件系统总块数 (2000块)
+    uint nblocks;     // 数据块数量 (1954块)
+    uint ninodes;     // inode数量 (200项)
+    uint nlog;        // 日志块数量 (30块)
+    uint logstart;    // 第一个日志块的块号  (第2块)
+    uint inodestart;  // 第一个inode块的块号 (第32块)
+    uint bmapstart;   // 第一个位图块的块号  (第45块)
 };
 
 #define NDIRECT 12                        // 直接块数量
 #define NINDIRECT (BSIZE / sizeof(uint))  // 间接块数量
 #define MAXFILE (NDIRECT + NINDIRECT)     // 最大文件大小 (块数)
 
-// 硬盘上的inode结构 (大端序)
+// inode结构 (硬盘中) (大端序)
 struct dinode {
-    short type;               // 文件类型
+    short type;               // 文件类型 (0:空闲 1:目录 2:文件 3:设备)
     short major;              // 主设备号
     short minor;              // 次设备号
     short nlink;              // 硬链接数
@@ -51,7 +53,7 @@ struct dinode {
 // 每个位图块 最多能够指示的块数
 #define BPB (BSIZE * 8)
 
-// Block of free map containing bit for block b
+// 根据超级块 计算第b个块对应位所在的位图块
 #define BBLOCK(b, sb) ((b) / BPB + sb.bmapstart)
 
 // 最大的文件名长度

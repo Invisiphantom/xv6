@@ -8,6 +8,10 @@
 //  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
 //  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
 
+// 硬盘布局
+// [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
+// [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
+
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
@@ -22,7 +26,7 @@
 
 // 一个日志事务包含多个文件系统系统调用的更新
 // 日志系统仅在没有活跃的文件系统系统调用时进行提交
-// 因此, 不需要考虑 是否误将未提交的系统调用的更新写入磁盘
+// 因此, 不需要考虑 是否误将未提交的系统调用的更新写入硬盘
 
 // 文件系统调用通过 begin_op() / end_op() 来标记其开始和结束
 // 通常 begin_op() 只是增加正在进行的文件系统系统调用的计数并返回
@@ -58,7 +62,7 @@ struct log log;
 static void recover_from_log(void);
 static void commit();
 
-// 初始化日志 (fs.c->fsinit)
+// 初始化日志系统 (fs.c->fsinit)
 void initlog(int dev, struct superblock* sb) {
     // logheader结构体大小不能超过一个块
     if (sizeof(struct logheader) >= BSIZE)
@@ -90,7 +94,7 @@ static void install_trans(int recovering) {
     }
 }
 
-// 从磁盘读取日志头, 并更新内存中的对应数据
+// 从硬盘读取日志头, 并更新内存中的对应数据
 static void read_head(void) {
     // 从设备dev读取日志头块start, 并返回锁定的buf
     struct buf* buf = bread(log.dev, log.start);
@@ -105,7 +109,7 @@ static void read_head(void) {
     brelse(buf);
 }
 
-// 将内存中的日志头写入磁盘
+// 将内存中的日志头写入硬盘
 // 这是当前事务提交的真正点
 static void write_head(void) {
     // 从设备dev读取块start, 并返回锁定的buf
@@ -124,10 +128,10 @@ static void write_head(void) {
 }
 
 static void recover_from_log(void) {
-    read_head();       // 从磁盘读取日志头, 并更新内存中的对应数据
+    read_head();       // 从硬盘读取日志头, 并更新内存中的对应数据
     install_trans(1);  // 将所有已提交的日志块 写入到它们的目标硬盘位置 (恢复模式)
     log.lh.n = 0;      // 内存中的日志块数量清零
-    write_head();      // 将内存中的日志头写入磁盘
+    write_head();      // 将内存中的日志头写入硬盘
 }
 
 // 在每个文件系统调用的开始部分被调用
@@ -212,9 +216,9 @@ static void commit() {
 
 // 调用者修改了b->data, 并结束了对缓冲区使用
 // 记录块号并通过增加refcnt将其固定在缓存中
-// commit()/write_log()将执行磁盘写入
+// commit()/write_log()将执行硬盘写入
 
-// 用log_write来取代直接写入硬盘的bwrite
+// 用log_write来代替直接写入硬盘的bwrite
 void log_write(struct buf* b) {
     int i;
 

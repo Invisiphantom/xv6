@@ -8,6 +8,10 @@
 //  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
 //  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
 
+// 硬盘布局
+// [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
+// [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
+
 // https://docs.oasis-open.org/virtio/virtio/v1.1/virtio-v1.1.pdf
 // https://github.com/qemu/qemu/blob/master/include/standard-headers/linux/virtio_mmio.h
 

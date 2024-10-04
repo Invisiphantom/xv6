@@ -8,6 +8,7 @@
         "string.h": "c",
         "types.h": "c",
         "stat.h": "c",
-        "buf.h": "c"
+        "buf.h": "c",
+        "file.h": "c"
     }
 }

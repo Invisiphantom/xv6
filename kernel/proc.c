@@ -582,14 +582,16 @@ int killed(struct proc* p) {
     return k;
 }
 
-// Copy to either a user address, or kernel address,
-// depending on usr_dst.
-// Returns 0 on success, -1 on error.
+// user_dst=1 : dst是用户虚拟地址
+// user_dst=0 : dst是内核地址
 int either_copyout(int user_dst, uint64 dst, void* src, uint64 len) {
     struct proc* p = myproc();
+    // 如果是用户地址, 则调用copyout
     if (user_dst) {
         return copyout(p->pagetable, dst, src, len);
-    } else {
+    } 
+    // 如果是内核地址, 则直接拷贝
+    else {
         memmove((char*)dst, src, len);
         return 0;
     }

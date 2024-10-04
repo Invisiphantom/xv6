@@ -108,7 +108,7 @@ uint64 sys_fstat(void) {
 // 从已有的文件路径, 创建新的路径 指向相同的inode
 uint64 sys_link(void) {
     char name[DIRSIZ], new[MAXPATH], old[MAXPATH];
-    struct inode *dp, *ip;
+    struct minode *dp, *ip;
 
     // 获取第一个参数old, 第二个参数new
     if (argstr(0, old, MAXPATH) < 0 || argstr(1, new, MAXPATH) < 0)
@@ -164,7 +164,7 @@ bad:
 }
 
 // Is the directory dp empty except for "." and ".." ?
-static int isdirempty(struct inode* dp) {
+static int isdirempty(struct minode* dp) {
     int off;
     struct dirent de;
 
@@ -177,8 +177,9 @@ static int isdirempty(struct inode* dp) {
     return 1;
 }
 
+// 移除硬链接 (系统调用)
 uint64 sys_unlink(void) {
-    struct inode *ip, *dp;
+    struct minode *ip, *dp;
     struct dirent de;
     char name[DIRSIZ], path[MAXPATH];
     uint off;
@@ -241,13 +242,16 @@ bad:
     return -1;
 }
 
-static struct inode* create(char* path, short type, short major, short minor) {
-    struct inode *ip, *dp;
+// 创建inode
+static struct minode* create(char* path, short type, short major, short minor) {
+    struct minode *ip, *dp;
     char name[DIRSIZ];
 
+    // 获取path->对应inode->其父目录inode
     if ((dp = nameiparent(path, name)) == 0)
         return 0;
 
+    // 锁定父目录inode
     ilock(dp);
 
     if ((ip = dirlookup(dp, name, 0)) != 0) {
@@ -259,6 +263,7 @@ static struct inode* create(char* path, short type, short major, short minor) {
         return 0;
     }
 
+    // 分配新的inode
     if ((ip = ialloc(dp->dev, type)) == 0) {
         iunlockput(dp);
         return 0;
@@ -302,7 +307,7 @@ uint64 sys_open(void) {
     char path[MAXPATH];
     int fd, omode;
     struct file* f;
-    struct inode* ip;
+    struct minode* ip;
     int n;
 
     argint(1, &omode);
@@ -367,7 +372,7 @@ uint64 sys_open(void) {
 
 uint64 sys_mkdir(void) {
     char path[MAXPATH];
-    struct inode* ip;
+    struct minode* ip;
 
     begin_op();
     if (argstr(0, path, MAXPATH) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0) {
@@ -380,7 +385,7 @@ uint64 sys_mkdir(void) {
 }
 
 uint64 sys_mknod(void) {
-    struct inode* ip;
+    struct minode* ip;
     char path[MAXPATH];
     int major, minor;
 
@@ -398,7 +403,7 @@ uint64 sys_mknod(void) {
 
 uint64 sys_chdir(void) {
     char path[MAXPATH];
-    struct inode* ip;
+    struct minode* ip;
     struct proc* p = myproc();
 
     begin_op();

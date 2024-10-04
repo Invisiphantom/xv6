@@ -8,7 +8,6 @@
 //  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
 //  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
 
-
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -33,7 +32,9 @@
     } while (0)
 #endif
 
-// 磁盘布局 [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
+// 磁盘布局 
+// [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
+// [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
 #define NINODES 200                    // 最大inode数量
 int nbitmap = FSSIZE / BPB + 1;        // 需要的位图块数量
 int ninodeblocks = NINODES / IPB + 1;  // 需要的inode块数量
@@ -203,6 +204,7 @@ int main(int argc, char* argv[]) {
     din.size = xint(off);
     winode(rootino, &din);
 
+    // 更新首个位图块
     balloc(freeblock);
 
     exit(0);
@@ -361,11 +363,10 @@ void balloc(int used) {
     printf("balloc: 目前已分配前 %d 块\n", used);
     assert(used < BPB);  // 保证已用块数 小于 单个位图块 最多能够指示的块数
 
-    // 填充位图块内容
+    // 填充位图块内容 (used)
     memset(buf, 0, BSIZE);
-    for (i = 0; i < used; i++) {
+    for (i = 0; i < used; i++)
         buf[i / 8] = buf[i / 8] | (0x1 << (i % 8));
-    }
 
     printf("balloc: 位图块处于第 %d 块\n", sb.bmapstart);
     wsect(sb.bmapstart, buf);  // 将buf写入到位图块

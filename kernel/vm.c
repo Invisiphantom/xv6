@@ -55,7 +55,6 @@ void kvminit(void) {
 
 // 设置satp寄存器, 启用Sv39分页
 void kvminithart() {
-    // 等待页表初始化的完成写回
     sfence_vma();
     w_satp(MAKE_SATP(kernel_pagetable));
     sfence_vma();

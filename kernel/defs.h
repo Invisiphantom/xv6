@@ -1,7 +1,7 @@
 struct buf;
 struct context;
 struct file;
-struct inode;
+struct minode;
 struct pipe;
 struct proc;
 struct spinlock;
@@ -36,23 +36,23 @@ int             filewrite(struct file*, uint64, int n);
 
 // fs.c
 void            fsinit(int);
-int             dirlink(struct inode*, char*, uint);
-struct inode*   dirlookup(struct inode*, char*, uint*);
-struct inode*   ialloc(uint, short);
-struct inode*   idup(struct inode*);
+int             dirlink(struct minode*, char*, uint);
+struct minode*   dirlookup(struct minode*, char*, uint*);
+struct minode*   ialloc(uint, short);
+struct minode*   idup(struct minode*);
 void            iinit();
-void            ilock(struct inode*);
-void            iput(struct inode*);
-void            iunlock(struct inode*);
-void            iunlockput(struct inode*);
-void            iupdate(struct inode*);
+void            ilock(struct minode*);
+void            iput(struct minode*);
+void            iunlock(struct minode*);
+void            iunlockput(struct minode*);
+void            iupdate(struct minode*);
 int             namecmp(const char*, const char*);
-struct inode*   namei(char*);
-struct inode*   nameiparent(char*, char*);
-int             readi(struct inode*, int, uint64, uint, uint);
-void            stati(struct inode*, struct stat*);
-int             writei(struct inode*, int, uint64, uint, uint);
-void            itrunc(struct inode*);
+struct minode*   namei(char*);
+struct minode*   nameiparent(char*, char*);
+int             readi(struct minode*, int, uint64, uint, uint);
+void            stati(struct minode*, struct stat*);
+int             writei(struct minode*, int, uint64, uint, uint);
+void            itrunc(struct minode*);
 
 // ramdisk.c
 void            ramdiskinit(void);
