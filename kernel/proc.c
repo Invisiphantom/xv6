@@ -60,11 +60,11 @@ int cpuid() {
     return id;
 }
 
-// Return this CPU's cpu struct.
-// Interrupts must be disabled.
+// 返回当前CPU的cpu结构体
+// 被调用时必顼关闭中断
 struct cpu* mycpu(void) {
     int id = cpuid();
-    struct cpu* c = &cpus[id];
+    struct cpu* c = (struct cpu*)&cpus[id];
     return c;
 }
 
@@ -96,7 +96,7 @@ static struct proc* allocproc(void) {
     struct proc* p;
 
     for (p = proc; p < &proc[NPROC]; p++) {
-        acquire(&p->lock);
+        acquire(&p->lock); // 获取进程锁
         if (p->state == UNUSED)
             goto found;  // 找到空闲进程
         else
@@ -115,7 +115,7 @@ found:
         return 0;
     }
 
-    // 配置用户态页表映射
+    // 配置用户态页表 (trapframe数据页 trampoline代码段)
     p->pagetable = proc_pagetable(p);
     if (p->pagetable == 0) {
         freeproc(p);
@@ -125,7 +125,7 @@ found:
 
     memset(&p->context, 0, sizeof(p->context));
     p->context.ra = (uint64)forkret;     // 设置上下文返回地址为forkret
-    p->context.sp = p->kstack + PGSIZE;  // 栈从高地址向低地址增长
+    p->context.sp = p->kstack + PGSIZE;  // 设置内核栈指针 (高地址向低地址增长)
 
     return p;
 }
@@ -162,24 +162,24 @@ static void freeproc(struct proc* p) {
 // >高地址
 
 // 对于给定的进程创建一个用户页表
-// 没有用户内存, 但有trampoline和trapframe页
+// 暂时只有trampoline和trapframe页
 pagetable_t proc_pagetable(struct proc* p) {
     pagetable_t pagetable;
 
-    // 分配并清空一个页表
+    // 分配并清空一个页
     pagetable = uvmcreate();
     if (pagetable == 0)
         return 0;
 
-    // 映射 trampoline 页到最高用户虚拟地址 (用于系统调用返回)
-    // TRAMPLINE跳转处理程序  va=TRAMPOLINE, pa=trampoline.S, size=PGSIZE, perm=内核可读可执行
+    // 映射 trampoline 代码段到最高用户虚拟地址 (用于stvec)
+    // va=TRAMPOLINE, pa=trampoline.S, size=PGSIZE, perm=内核可读可执行
     if (mappages(pagetable, TRAMPOLINE, PGSIZE, (uint64)trampoline, PTE_R | PTE_X) < 0) {
         uvmfree(pagetable, 0);
         return 0;
     }
 
-    // 将 TRAPFRAME 页映射到 TRAMPLINE 页的相邻低地址
-    // TRAPFRAME跳转暂存区   va=TRAPFRAME, pa=p->trapframe, size=PGSIZE, perm=内核可读可写
+    // 映射 p->trapframe 数据页到 TRAMPLINE 的相邻低地址
+    // va=TRAPFRAME, pa=p->trapframe, size=PGSIZE, perm=内核可读可写
     if (mappages(pagetable, TRAPFRAME, PGSIZE, (uint64)(p->trapframe), PTE_R | PTE_W) < 0) {
         uvmunmap(pagetable, TRAMPOLINE, 1, 0);
         uvmfree(pagetable, 0);
@@ -208,17 +208,24 @@ uchar initcode[] = {0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 
 void userinit(void) {
     struct proc* p;
 
-    // 获取新进程 (持锁 USED 页表 上下文)
+    // 从进程表中分配空闲进程
+    // 1. 获取进程锁
+    // 2. 分配新的pid
+    // 3. 更新状态为USED
+    // 4. 分配 trapframe 页
+    // 5. 配置用户态页表 (trapframe数据页 trampoline代码段)
+    // 6. 设置上下文返回地址为forkret
+    // 7. 设置内核栈指针 p->kstack + PGSIZE
     p = allocproc();
     initproc = p;
 
-    // 分配一个用户页, 并将initcode的指令和数据复制到其中
+    // 分配用户页 映射到用户虚拟地址0, 并填充initcode
     uvmfirst(p->pagetable, initcode, sizeof(initcode));
     p->sz = PGSIZE;
 
-    // 准备从内核态返回到用户态
-    p->trapframe->epc = 0;      // 用户程序计数器
-    p->trapframe->sp = PGSIZE;  // 用户栈指针
+    // 从内核态到用户态的准备工作
+    p->trapframe->epc = 0;      // 设置trapframe->epc指向initcode
+    p->trapframe->sp = PGSIZE;  // 设置trapframe->sp 指向用户栈顶
 
     // 设置进程名和当前工作目录
     safestrcpy(p->name, "initcode", sizeof(p->name));
@@ -398,31 +405,28 @@ int wait(uint64 addr) {
     }
 }
 
-// Per-CPU process scheduler.
-// Each CPU calls scheduler() after setting itself up.
-// Scheduler never returns.  It loops, doing:
 //  - choose a process to run.
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+// 每个CPU从 main.c 跳转到此处 (S-mode)
+
 void scheduler(void) {
     struct proc* p;
     struct cpu* c = mycpu();
 
     c->proc = 0;
     for (;;) {
-        // The most recent process to run may have had interrupts
-        // turned off; enable them to avoid a deadlock if all
-        // processes are waiting.
-        intr_on();
+        intr_on();  // 启用设备中断 (防止死锁)
 
+        // 遍历寻找可运行进程
         int found = 0;
         for (p = proc; p < &proc[NPROC]; p++) {
+            // 获取进程锁
             acquire(&p->lock);
+            // 如果进程是RUNNABLE状态
             if (p->state == RUNNABLE) {
-                // Switch to chosen process.  It is the process's job
-                // to release its lock and then reacquire it
-                // before jumping back to us.
+                // 由进程负责释放锁 并在返回到调度器之前重新获取锁
                 p->state = RUNNING;
                 c->proc = p;
 
@@ -436,10 +440,11 @@ void scheduler(void) {
             }
             release(&p->lock);
         }
+
+        // 如果没有找到可运行的进程
         if (found == 0) {
-            // nothing to run; stop running on this core until an interrupt.
-            intr_on();
-            asm volatile("wfi");
+            intr_on();            // 启用设备中断
+            asm volatile("wfi");  // Wait For Interrupt
         }
     }
 }
@@ -589,7 +594,7 @@ int either_copyout(int user_dst, uint64 dst, void* src, uint64 len) {
     // 如果是用户地址, 则调用copyout
     if (user_dst) {
         return copyout(p->pagetable, dst, src, len);
-    } 
+    }
     // 如果是内核地址, 则直接拷贝
     else {
         memmove((char*)dst, src, len);

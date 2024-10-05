@@ -21,8 +21,8 @@ trampoline:
 .globl uservec
 uservec:    
         # trap.c 将 stvec 地址设置为此处
-        # 所以用户态 traps 跳转到此处
-        # 此时已经是内核态, 但是页表还属于用户态
+        # 所以用户态 traps 跳转到此处 (U-mode->S-mode)
+        # 此时已经是内核态, 但页表还属于用户态
 
         # 将a0保存到sscratch, 以便使用a0获取TRAPFRAME
         csrw sscratch, a0

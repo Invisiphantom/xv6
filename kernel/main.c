@@ -29,8 +29,8 @@ void main() {
         plicinithart();  // 当前CPU 启用UART和VirtIO中断
 
         binit();             // 初始化cache链环
-        iinit();             // inode table
-        fileinit();          // file table
+        iinit();             // 初始化inode锁
+        fileinit();          // 初始化文件系统锁
         virtio_disk_init();  // 初始化virtio硬盘
 
         userinit();  // 初始化第一个用户进程

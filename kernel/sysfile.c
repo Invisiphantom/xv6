@@ -217,7 +217,7 @@ uint64 sys_unlink(void) {
         goto bad;
     }
 
-    memset(&de, 0, sizeof(de)); // 清空初始化目录项
+    memset(&de, 0, sizeof(de));  // 清空初始化目录项
     if (writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
         panic("unlink: writei");
 

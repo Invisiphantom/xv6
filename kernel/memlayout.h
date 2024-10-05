@@ -56,6 +56,8 @@
 //      guard page
 //      TRAMPOLINE
 // >高地址
+// 依次映射每个进程的内核栈到内核空间
+#define KSTACK(p) (TRAMPOLINE - ((p) + 1) * 2 * PGSIZE)
 
 // 用户虚拟内存布局 (proc.c->proc_pagetable)
 // >低地址
@@ -67,11 +69,5 @@
 //   TRAPFRAME (p->trapframe)
 //   TRAMPOLINE (内核代码段trampoline.S)
 // >高地址
-
 #define TRAMPOLINE (MAXVA - PGSIZE)      // trampoline页映射到最高虚拟地址, 用于用户和内核空间
-#define TRAPFRAME (TRAMPOLINE - PGSIZE)  // trapframe页映射到trampoline页的上面
-
-// p:进程编号(0:NPROC-1)
-// 将每个进程的内核栈 依次映射到 trampoline页的上面
-// 每个内核栈上下各映射一个无效保护页
-#define KSTACK(p) (TRAMPOLINE - ((p) + 1) * 2 * PGSIZE)
+#define TRAPFRAME (TRAMPOLINE - PGSIZE)  // trapframe页映射到trampoline页的相邻低地址

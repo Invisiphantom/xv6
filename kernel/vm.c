@@ -196,11 +196,18 @@ pagetable_t uvmcreate() {
 void uvmfirst(pagetable_t pagetable, uchar* initcode, uint sz) {
     char* mem;
 
+    // 确保initcode不超过一页
     if (sz >= PGSIZE)
         panic("uvmfirst: more than a page");
+
+    // 分配并清空一页内存
     mem = kalloc();
     memset(mem, 0, PGSIZE);
+
+    // va=0, pa=mem, size=PGSIZE, perm=可读可写可执行 (用户权限)
     mappages(pagetable, 0, PGSIZE, (uint64)mem, PTE_W | PTE_R | PTE_X | PTE_U);
+
+    // 拷贝initcode到mem物理地址
     memmove(mem, initcode, sz);
 }
 

@@ -274,7 +274,7 @@ void iput(struct minode* ip) {
     // 如果是最后一个引用, 并且没有硬链接
     if (ip->ref == 1 && ip->valid && ip->nlink == 0) {
         // ip->ref == 1 意味着没有其他进程可以锁定ip
-        // 因此这个acquiresleep()不会被阻塞（或死锁）
+        // 因此这个acquiresleep()不会被阻塞(或死锁)
         acquiresleep(&ip->lock);  // 获取inode锁
 
         release(&itable.lock);  // 释放itable锁
@@ -400,7 +400,7 @@ int readi(struct minode* ip, int user_dst, uint64 dst, uint off, uint n) {
         n = ip->size - off;
 
     for (total = 0; total < n; total += m, off += m, dst += m) {
-        // 返回 off 所处硬盘块的地址
+        // 返回 off 所处硬盘块的地址 (保证偏移量在范围内, 不会扩展文件)
         uint addr = bmap(ip, off / BSIZE);
         if (addr == 0)
             break;
@@ -427,6 +427,7 @@ int readi(struct minode* ip, int user_dst, uint64 dst, uint off, uint n) {
 // user_dst=1 : dst是用户虚拟地址
 // user_dst=0 : dst是内核地址
 // 将src[n]数据写入inode[off, off+n], 返回成功写入的字节数
+// 如果写入超过文件大小, 则自动扩展并更新文件大小
 int writei(struct minode* ip, int user_src, uint64 src, uint off, uint n) {
     uint total, m;
     struct buf* bp;
@@ -440,7 +441,7 @@ int writei(struct minode* ip, int user_src, uint64 src, uint off, uint n) {
         return -1;
 
     for (total = 0; total < n; total += m, off += m, src += m) {
-        // 返回 off 所处硬盘块的地址
+        // 返回 off 所处硬盘块的地址 (超出部分 自动扩展文件)
         uint addr = bmap(ip, off / BSIZE);
         if (addr == 0)
             break;
@@ -480,7 +481,7 @@ int namecmp(const char* s, const char* t) {
 }
 
 // 在指定目录dp中查找给定名称name的目录项
-// 如果找到该目录项，则将其字节偏移量存储在 *poff 中，并返回相应的 inode
+// 如果找到该目录项，则将其字节偏移量存储在 *poff 中，并返回 minode
 struct minode* dirlookup(struct minode* dp, char* name, uint* poff) {
     uint inum;
     struct dirent de;
@@ -489,46 +490,54 @@ struct minode* dirlookup(struct minode* dp, char* name, uint* poff) {
     if (dp->type != T_DIR)
         panic("dirlookup not DIR");
 
+    // 遍历目录下的所有项
     for (uint off = 0; off < dp->size; off += sizeof(de)) {
+        // 读取dp[off, off+n]的数据到de[n]
         if (readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
             panic("dirlookup read");
+
+        // 跳过空目录项
         if (de.inum == 0)
             continue;
+
+        // 如果找到匹配的目录项
         if (namecmp(name, de.name) == 0) {
-            // entry matches path element
             if (poff)
-                *poff = off;
-            inum = de.inum;
-            return iget(dp->dev, inum);
+                *poff = off;             // 记录在目录内部的偏移量
+            inum = de.inum;              // 记录inode编号
+            return iget(dp->dev, inum);  // 返回inum对应的minode
         }
     }
 
     return 0;
 }
 
-// Write a new directory entry (name, inum) into the directory dp.
-// Returns 0 on success, -1 on failure (e.g. out of disk blocks).
+// 在指定的目录 dp 中写入新的目录项{inum,name}
 int dirlink(struct minode* dp, char* name, uint inum) {
     int off;
     struct dirent de;
     struct minode* ip;
 
-    // Check that name is not present.
+    // 确保文件name在目录dp中
     if ((ip = dirlookup(dp, name, 0)) != 0) {
         iput(ip);
         return -1;
     }
 
-    // Look for an empty dirent.
+    // 寻找一个空的目录项
     for (off = 0; off < dp->size; off += sizeof(de)) {
+        // 读取dp[off, off+n]的数据到de[n]
         if (readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
             panic("dirlink read");
+        // 找到了空的目录项
         if (de.inum == 0)
             break;
     }
 
-    strncpy(de.name, name, DIRSIZ);
-    de.inum = inum;
+    de.inum = inum;                  // 更新de.inum
+    strncpy(de.name, name, DIRSIZ);  // 更新de.name
+
+    // 将更新后的目录项de写回到dp[off, off+n] (如果超出文件大小, 则自动扩展)
     if (writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
         return -1;
 
@@ -537,85 +546,103 @@ int dirlink(struct minode* dp, char* name, uint inum) {
 
 // -------------------------------- Path -------------------------------- //
 
-// Copy the next path element from path into name.
-// Return a pointer to the element following the copied one.
-// The returned path has no leading slashes,
-// so the caller can check *path=='\0' to see if the name is the last one.
-// If no name to remove, return 0.
-//
-// Examples:
-//   skipelem("a/bb/c", name) = "bb/c", setting name = "a"
-//   skipelem("///a//bb", name) = "bb", setting name = "a"
-//   skipelem("a", name) = "", setting name = "a"
-//   skipelem("", name) = skipelem("////", name) = 0
-//
+// 拆分路径path, 将第一个元素复制到name中, 并返回剩余的路径
+// - skipelem("a/bb/c", name) = "bb/c" --> name = "a"
+// - skipelem("///a//bb", name) = "bb" --> name = "a"
+// - skipelem("a", name) = ""          --> name = "a"
+// - skipelem("", name) = skipelem("////", name) = 0
 static char* skipelem(char* path, char* name) {
     char* s;
     int len;
 
+    // 跳过前缀的'/'
     while (*path == '/')
         path++;
+
+    // 如果path为空, 则返回0
     if (*path == 0)
         return 0;
+
+    // 记录路径的起始位置
     s = path;
+
+    // 提取第一个元素
     while (*path != '/' && *path != 0)
         path++;
+
+    // 记录第一个元素的长度
     len = path - s;
+
+    // 如果其名称长度大于DIRSIZ, 则截断
     if (len >= DIRSIZ)
         memmove(name, s, DIRSIZ);
+
+    // 否则直接复制到name中
     else {
         memmove(name, s, len);
         name[len] = 0;
     }
+
+    // 跳过后续的'/'
     while (*path == '/')
         path++;
     return path;
 }
 
-// 查找并返回path对应的inode
-// 如果parent != 0, 则返回父目录的inode
+// 查找path对应的路径inode
+// nameiparent=0 : 返回路径对应inode
+// nameiparent=1 : 返回其父目录inode
 // 并将最后的路径元素复制到name中, name必须有DIRSIZ字节的空间
 // 必须在transaction中调用, 因为它调用了iput()
 static struct minode* namex(char* path, int nameiparent, char* name) {
     struct minode *ip, *next;
 
     if (*path == '/')
-        ip = iget(ROOTDEV, ROOTINO);
+        ip = iget(ROOTDEV, ROOTINO);  // 直接返回根目录inode
     else
-        ip = idup(myproc()->cwd);
+        ip = idup(myproc()->cwd);  // 增加对当前工作目录的引用
 
+    // 逐级查找目录
     while ((path = skipelem(path, name)) != 0) {
+        // 锁定当前目录inode
         ilock(ip);
+        // 确保cwd是一个目录类型
         if (ip->type != T_DIR) {
             iunlockput(ip);
             return 0;
         }
+        // 提前一次循环, 返回父目录inode
         if (nameiparent && *path == '\0') {
-            // Stop one level early.
             iunlock(ip);
             return ip;
         }
+        // 在当前目录ip中查找name对应项 并记为next
         if ((next = dirlookup(ip, name, 0)) == 0) {
             iunlockput(ip);
             return 0;
         }
+        // 释放当前目录inode, 继续处理next
         iunlockput(ip);
         ip = next;
     }
+
+    // 确保需要返回父目录时, 不会到达这里
     if (nameiparent) {
         iput(ip);
         return 0;
     }
+
+    // 返回path对应的inode
     return ip;
 }
 
-// 获取path对应的inode
+// 获取path对应的inode (封装namex)
 struct minode* namei(char* path) {
     char name[DIRSIZ];
     return namex(path, 0, name);
 }
 
-// 获取path对应的inode的父目录inode
+// 获取path对应的inode的父目录inode (封装namex)
 struct minode* nameiparent(char* path, char* name) {
     return namex(path, 1, name);
 }

@@ -9,5 +9,5 @@ struct stat {
     uint ino;     // Inode编号
     short type;   // 文件类型
     short nlink;  // 硬链接数
-    uint64 size;  // 文件大小（字节）
+    uint64 size;  // 文件大小(字节)
 };

@@ -18,7 +18,7 @@
                     ],
                     "background": {
                         "beginsPattern": ".", // 通过background的强制结束
-                        "endsPattern": "." // 来提醒launch.json启动gdb
+                        "endsPattern": "Now run 'gdb' in another window." // 来提醒launch.json启动gdb
                     }
                 }
             ]
