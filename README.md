@@ -40,8 +40,10 @@ mv compile_commands.json .vscode/
                         }
                     ],
                     "background": {
-                        "beginsPattern": ".", // 通过background的强制结束
-                        "endsPattern": "." // 来提醒launch.json启动gdb
+                        // 通过background的强制结束
+                        // 来提醒launch.json启动gdb
+                        "beginsPattern": ".",
+                        "endsPattern": "Now run 'gdb' in another window."
                     }
                 }
             ]
