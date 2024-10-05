@@ -61,10 +61,10 @@
 
 // 用户虚拟内存布局 (proc.c->proc_pagetable)
 // >低地址
-//   text
-//   original data and bss
-//   fixed-size stack
-//   expandable heap
+//   代码段
+//   数据段
+//   用户栈空间
+//   用户堆空间
 //   ...
 //   TRAPFRAME (p->trapframe)
 //   TRAMPOLINE (内核代码段trampoline.S)

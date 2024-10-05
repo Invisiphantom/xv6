@@ -4,9 +4,9 @@
 //  + Dev+blockno: 虚拟硬盘块设备 (virtio_disk.c)
 //  + Bcache: 缓存链环 (bio.c)
 //  + Log: 多步更新的崩溃恢复 (log.c)
-//  + Inodes: inode分配器, 读取, 写入, 元数据 (fs.c)
-//  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
-//  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
+//  + Inode: inode分配器, 读取, 写入, 元数据 (fs.c)
+//  + Directory: 具有特殊内容的inode(其他inode的列表) (fs.c)
+//  + Path: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
 
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]

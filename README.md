@@ -112,6 +112,43 @@ mv compile_commands.json .vscode/
 | `int link(char *file1, char *file2)`       | 给file1创建新的硬链接file2                                    |
 | `int unlink(char *file)`                   | 删除文件链接                                                  |
 
+# xv6虚拟地址空间
+
+```cpp
+// 内核虚拟内存布局 (vm.c->kvmmake)
+// >低地址
+//      UART
+//      VirtIO
+//      PLIC
+//      内核代码段
+//      内核其余物理内存
+//      ...
+//      proc[NPROC-1]内核栈
+//      guard page
+//      proc[NPROC-2]内核栈
+//      guard page
+//      ...
+//      proc[0]内核栈
+//      guard page
+//      TRAMPOLINE
+// >高地址
+// 依次映射每个进程的内核栈到内核空间
+#define KSTACK(p) (TRAMPOLINE - ((p) + 1) * 2 * PGSIZE)
+
+// 用户虚拟内存布局 (proc.c->proc_pagetable)
+// >低地址
+//   代码段
+//   数据段
+//   用户栈空间
+//   用户堆空间
+//   ...
+//   TRAPFRAME (p->trapframe)
+//   TRAMPOLINE (内核代码段trampoline.S)
+// >高地址
+#define TRAMPOLINE (MAXVA - PGSIZE)      // trampoline页映射到最高虚拟地址, 用于用户和内核空间
+#define TRAPFRAME (TRAMPOLINE - PGSIZE)  // trapframe页映射到trampoline页的相邻低地址
+```
+
 
 # xv6文件系统
 
@@ -121,9 +158,9 @@ mv compile_commands.json .vscode/
 //  + Dev+blockno: 虚拟硬盘块设备 (virtio_disk.c)
 //  + Bcache: 缓存链环 (bio.c)
 //  + Log: 多步更新的崩溃恢复 (log.c)
-//  + Inodes: inode分配器, 读取, 写入, 元数据 (fs.c)
-//  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
-//  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
+//  + Inode: inode分配器, 读取, 写入, 元数据 (fs.c)
+//  + Directory: 具有特殊内容的inode(其他inode的列表) (fs.c)
+//  + Path: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
 
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
