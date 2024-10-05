@@ -4,7 +4,7 @@
         {
             "label": "xv6build",
             "type": "shell",
-            "command": "make qemu-gdb",
+            "command": "make qemu-gdb -s",
             "isBackground": true,
             "problemMatcher": [
                 {
@@ -18,7 +18,7 @@
                     ],
                     "background": {
                         "beginsPattern": ".", // 通过background的强制结束
-                        "endsPattern": "Now run 'gdb' in another window." // 来提醒launch.json启动gdb
+                        "endsPattern": ">" // 来提醒launch.json启动gdb
                     }
                 }
             ]

@@ -94,7 +94,7 @@ static void install_trans(int recovering) {
     }
 }
 
-// 从硬盘读取日志头, 并更新内存中的对应数据
+// 从硬盘读取日志头到内存, 并更新内存中的对应数据
 static void read_head(void) {
     // 从设备dev读取日志头块start, 并返回锁定的buf
     struct buf* buf = bread(log.dev, log.start);

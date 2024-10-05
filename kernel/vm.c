@@ -46,8 +46,6 @@ pagetable_t kvmmake(void) {
     return kpgtbl;
 }
 
-
-
 // 初始化内核页表
 void kvminit(void) {
     kernel_pagetable = kvmmake();
@@ -79,14 +77,24 @@ pte_t* walk(pagetable_t pagetable, uint64 va, int alloc) {
         if (*pte & PTE_V)
             pagetable = (pagetable_t)PTE2PA(*pte);
 
-        // 如果不是有效项, 且alloc为真, 则创建新页表
+        // 如果不是有效项
         else {
-            if (!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+            // 给下一级页表分配一页内存
+            pagetable = (pde_t*)kalloc();
+
+            // 确保alloc为真 且分配成功
+            if (!alloc || (pagetable == 0))
                 return 0;
+
+            // 清空页表
             memset(pagetable, 0, PGSIZE);
+
+            // 填充页表项, 指向新分配的下一级页表
             *pte = PA2PTE(pagetable) | PTE_V;
         }
     }
+
+    // 返回最后一级页表的物理地址项
     return &pagetable[PX(0, va)];
 }
 
@@ -118,12 +126,9 @@ void kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm) {
         panic("kvmmap");
 }
 
-// pagetable: 页表地址
-// va: 开始的虚拟地址
-// size: 要映射的总大小
-// pa: 开始的物理地址
-// perm: 页表项的权限
-// 成功: 0   失败: -1
+// pagetable: 首级页表所在的物理页地址
+// va: 开始的虚拟地址  size: 映射的总大小 (字节)
+// pa: 开始的物理地址  perm: 页表项的权限 (riscv.h)
 int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm) {
     uint64 a, last;
     pte_t* pte;
@@ -136,21 +141,25 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     if (size == 0)
         panic("mappages: size");
 
-    a = va;
-    last = va + size - PGSIZE;
+    a = va;                     // 首个虚拟页地址
+    last = va + size - PGSIZE;  // 末个虚拟页地址
     for (;;) {
-        // 获取va对应的页表项 (如果不存在, 则创建)
+        // 获取va对应的最后一级页表项 (如果不存在, 则逐级创建)
         if ((pte = walk(pagetable, a, 1)) == 0)
             return -1;
-        // 如果页表项已有效, 则报错
+
+        // 确保此页表项 未映射物理地址
         if (*pte & PTE_V)
             panic("mappages: remap");
+
         // 设置页表项 (物理地址 + 权限位 + 有效位)
         *pte = PA2PTE(pa) | perm | PTE_V;
 
-        // 继续设置下一页
+        // 如果所有页都映射完毕, 则退出
         if (a == last)
             break;
+
+        // 继续设置下一页
         a += PGSIZE;
         pa += PGSIZE;
     }

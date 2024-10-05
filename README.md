@@ -17,6 +17,8 @@ gdb-multiarch kernel/kernel
 make clean
 bear -- make qemu
 mv compile_commands.json .vscode/
+
+-exec file ./user/_init # 调试用户程序
 ```
 
 .vscode/tasks.json  

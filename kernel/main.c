@@ -6,6 +6,7 @@
 
 volatile static int started = 0;
 
+// -exec file ./kernel/kernel
 // start.c 跳转到此处 (S-mode)
 void main() {
     if (cpuid() == 0) {
@@ -33,7 +34,7 @@ void main() {
         fileinit();          // 初始化文件系统锁
         virtio_disk_init();  // 初始化virtio硬盘
 
-        userinit();  // 初始化第一个用户进程
+        userinit();  // 初始化第一个用户进程 initcode.S
 
         __sync_synchronize();  // 内存屏障
 

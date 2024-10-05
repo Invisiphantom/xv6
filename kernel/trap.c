@@ -20,32 +20,31 @@ void trapinit(void) {
     initlock(&tickslock, "time");
 }
 
-// 设置stvec异常处理跳转到kernelvec.S
+// 设置内核异常处理stvec指向kernelvec
 void trapinithart(void) {
     w_stvec((uint64)kernelvec);
 }
 
 // 处理来自用户空间的中断、异常或系统调用
-// 在trampoline.S中被uservec()调用
+// trampoline.S->uservec 跳转到此处 (S-mode)
 void usertrap(void) {
     int which_dev = 0;
 
-    // 如果不是来自用户模式
+    // 确保中断来自用户态
     if ((r_sstatus() & SSTATUS_SPP) != 0)
         panic("usertrap: not from user mode");
 
-    // 更新stvec寄存器的内核异常处理程序为kernelvec
+    // 设置内核异常处理stvec指向kernelvec
     w_stvec((uint64)kernelvec);
 
-    // 获取之前正在执行的进程
+    // 获取用户进程信息
     struct proc* p = myproc();
 
     // 保存用户PC
     p->trapframe->epc = r_sepc();
 
+    // 如果是用户系统调用
     if (r_scause() == 8) {
-        // 系统调用
-
         if (killed(p))
             exit(-1);
 
@@ -56,9 +55,13 @@ void usertrap(void) {
         intr_on();  // 重新开启中断
 
         syscall();  // 处理系统调用
-    } else if ((which_dev = devintr()) != 0) {
-        // 处理外部设备中断 (键盘, 硬盘, 定时器)
-    } else {
+    }
+
+    // 如果是设备中断 (键盘, 硬盘, 定时器)
+    else if ((which_dev = devintr()) != 0) {
+    }
+
+    else {
         printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
         printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
         setkilled(p);
@@ -71,49 +74,41 @@ void usertrap(void) {
     if (which_dev == 2)
         yield();
 
+    // 从内核态返回到用户态
     usertrapret();
 }
 
-//
-// return to user space
-//
+// 从内核态返回到用户态
 void usertrapret(void) {
     struct proc* p = myproc();
 
-    // we're about to switch the destination of traps from
-    // kerneltrap() to usertrap(), so turn off interrupts until
-    // we're back in user space, where usertrap() is correct.
+    // 因为要将trap的目的地从kerneltrap()切换到usertrap()
+    // 所以要在返回到用户空间之前关闭中断
     intr_off();
 
-    // send syscalls, interrupts, and exceptions to uservec in trampoline.S
+    // 设置用户异常处理stvec指向uservec (trampoline.S)
     uint64 trampoline_uservec = TRAMPOLINE + (uservec - trampoline);
     w_stvec(trampoline_uservec);
 
-    // set up trapframe values that uservec will need when
-    // the process next traps into the kernel.
-    p->trapframe->kernel_satp = r_satp();          // kernel page table
-    p->trapframe->kernel_sp = p->kstack + PGSIZE;  // process's kernel stack
-    p->trapframe->kernel_trap = (uint64)usertrap;
-    p->trapframe->kernel_hartid = r_tp();  // hartid for cpuid()
+    // 设置uservec()需要使用的值
+    p->trapframe->kernel_satp = r_satp();          // 内核页表 (satp)
+    p->trapframe->kernel_sp = p->kstack + PGSIZE;  // 进程内核栈 (sp)
+    p->trapframe->kernel_trap = (uint64)usertrap;  // 用户中断处理函数 (jr)
+    p->trapframe->kernel_hartid = r_tp();          // 当前CPU的ID (tp)
 
-    // set up the registers that trampoline.S's sret will use
-    // to get to user space.
-
-    // set S Previous Privilege mode to User.
+    // 设置sret将进入用户模式, 并启用中断
     unsigned long x = r_sstatus();
-    x &= ~SSTATUS_SPP;  // clear SPP to 0 for user mode
-    x |= SSTATUS_SPIE;  // enable interrupts in user mode
+    x &= ~SSTATUS_SPP;  // sstatus.SPP=0 
+    x |= SSTATUS_SPIE;  // sstatus.SPIE=1
     w_sstatus(x);
 
-    // set S Exception Program Counter to the saved user pc.
+    // 设置sret将跳转到的用户PC 
     w_sepc(p->trapframe->epc);
 
-    // tell trampoline.S the user page table to switch to.
+    // 设置用户页表寄存器为 {Sv39, p->pagetable}
     uint64 satp = MAKE_SATP(p->pagetable);
 
-    // jump to userret in trampoline.S at the top of memory, which
-    // switches to the user page table, restores user registers,
-    // and switches to user mode with sret.
+    // 执行 trampoline.S->userret(satp)
     uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
     ((void (*)(uint64))trampoline_userret)(satp);
 }
@@ -167,16 +162,19 @@ void clockintr() {
 int devintr() {
     uint64 scause = r_scause();
 
+    // 如果是外部设备中断 (PLIC)
     if (scause == 0x8000000000000009L) {
-        // 当前是内核态外部中断 (PLIC)
-
         // irq 指示当前处理的中断
         int irq = plic_claim();
 
+        // 如果是键盘中断 (UART)
         if (irq == UART0_IRQ)
-            uartintr();  // 处理键盘输入
+            uartintr();
+
+        // 如果是硬盘中断 (VirtIO)
         else if (irq == VIRTIO0_IRQ)
-            virtio_disk_intr();  // 处理硬盘中断
+            virtio_disk_intr();
+
         else if (irq)
             printf("unexpected interrupt irq=%d\n", irq);
 
@@ -186,11 +184,15 @@ int devintr() {
             plic_complete(irq);
 
         return 1;
-    } else if (scause == 0x8000000000000005L) {
-        // 定时器中断
+    }
+
+    // 如果是定时器中断
+    else if (scause == 0x8000000000000005L) {
         clockintr();
         return 2;
-    } else {
+    }
+
+    else {
         return 0;
     }
 }

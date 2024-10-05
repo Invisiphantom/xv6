@@ -12,7 +12,7 @@ struct proc proc[NPROC];
 
 struct proc* initproc;
 
-int nextpid = 1;
+int nextpid = 1;  // 从1开始分配pid
 struct spinlock pid_lock;
 
 extern void forkret(void);
@@ -55,14 +55,14 @@ void procinit(void) {
 
 // 被调用时必须关闭中断
 // 以防止与其他CPU上的同进程发生竞争
-int cpuid() {
+inline int cpuid() {
     int id = r_tp();
     return id;
 }
 
 // 返回当前CPU的cpu结构体
 // 被调用时必顼关闭中断
-struct cpu* mycpu(void) {
+inline struct cpu* mycpu(void) {
     int id = cpuid();
     struct cpu* c = (struct cpu*)&cpus[id];
     return c;
@@ -96,7 +96,7 @@ static struct proc* allocproc(void) {
     struct proc* p;
 
     for (p = proc; p < &proc[NPROC]; p++) {
-        acquire(&p->lock); // 获取进程锁
+        acquire(&p->lock);  // 获取进程锁
         if (p->state == UNUSED)
             goto found;  // 找到空闲进程
         else
@@ -123,9 +123,9 @@ found:
         return 0;
     }
 
-    memset(&p->context, 0, sizeof(p->context));
-    p->context.ra = (uint64)forkret;     // 设置上下文返回地址为forkret
-    p->context.sp = p->kstack + PGSIZE;  // 设置内核栈指针 (高地址向低地址增长)
+    memset(&p->context, 0, sizeof(p->context));  // 清空进程上下文
+    p->context.ra = (uint64)forkret;             // 设置swtch返回后跳转到forkret
+    p->context.sp = p->kstack + PGSIZE;          // 设置内核栈指针 (从高地址向低地址增长)
 
     return p;
 }
@@ -214,12 +214,12 @@ void userinit(void) {
     // 3. 更新状态为USED
     // 4. 分配 trapframe 页
     // 5. 配置用户态页表 (trapframe数据页 trampoline代码段)
-    // 6. 设置上下文返回地址为forkret
+    // 6. 设置swtch返回后跳转到forkret
     // 7. 设置内核栈指针 p->kstack + PGSIZE
     p = allocproc();
     initproc = p;
 
-    // 分配用户页 映射到用户虚拟地址0, 并填充initcode
+    // 分配用户页填充initcode, 并映射到用户虚拟地址0
     uvmfirst(p->pagetable, initcode, sizeof(initcode));
     p->sz = PGSIZE;
 
@@ -231,9 +231,10 @@ void userinit(void) {
     safestrcpy(p->name, "initcode", sizeof(p->name));
     p->cwd = namei("/");
 
-    // 更新进程状态为RUNNABLE
+    // 更新状态为RUNNABLE, 等待调度
     p->state = RUNNABLE;
 
+    // 释放allocproc()中获取的进程锁
     release(&p->lock);
 }
 
@@ -424,6 +425,7 @@ void scheduler(void) {
         for (p = proc; p < &proc[NPROC]; p++) {
             // 获取进程锁
             acquire(&p->lock);
+
             // 如果进程是RUNNABLE状态
             if (p->state == RUNNABLE) {
                 // 由进程负责释放锁 并在返回到调度器之前重新获取锁
@@ -433,7 +435,11 @@ void scheduler(void) {
                 // 将当前调度器状态保存到cpu, 并切换到进程p
                 swtch(&c->context, &p->context);
 
-                // Process is done running for now.
+#ifdef vscode
+                forkret();
+#endif
+
+                // 进程执行完毕, 返回到调度器 (持有p->lock)
                 // It should have changed its p->state before coming back.
                 c->proc = 0;
                 found = 1;
@@ -457,22 +463,26 @@ void sched(void) {
     int intena;
     struct proc* p = myproc();
 
-    // 必须持有p->lock
+    // 确保持有p->lock
     if (!holding(&p->lock))
         panic("sched p->lock");
-    // 必须持有cpu->lock
+    // 确保持有cpu->lock
     if (mycpu()->noff != 1)
         panic("sched locks");
-    // 必须是RUNNABLE状态
+    // 确保不处于RUNNING状态
     if (p->state == RUNNING)
         panic("sched running");
-    // 必须是中断关闭状态
+    // 确保是中断关闭状态
     if (intr_get())
         panic("sched interruptible");
 
-    intena = mycpu()->intena;               // 暂存中断状态
-    swtch(&p->context, &mycpu()->context);  // 保存当前进程上下文, 并切换到调度器
-    mycpu()->intena = intena;               // 恢复中断状态
+    intena = mycpu()->intena;               // 暂存当前中断状态
+    swtch(&p->context, &mycpu()->context);  // 保存当前进程上下文, 并切换到调度器 scheduler()
+    mycpu()->intena = intena;               // 恢复当前中断状态
+
+#ifdef vscode
+    scheduler();
+#endif
 }
 
 // 让出CPU, 并将当前进程状态设置为RUNNABLE
@@ -484,24 +494,27 @@ void yield(void) {
     release(&p->lock);
 }
 
-// A fork child's very first scheduling by scheduler()
-// will swtch to forkret.
+// 新分配进程调度 swtch 后跳转到此处 (S-mode)
 void forkret(void) {
-    static int first = 1;
+    // 函数内部静态变量
+    static int first = 1;  // 标记是否为第一个用户进程
 
-    // Still holding p->lock from scheduler.
+    // 释放在scheduler()中获取的进程锁
     release(&myproc()->lock);
 
+    // 如果是第一个用户进程, 则初始化文件系统
     if (first) {
-        // 文件系统初始化必须在常规进程的上下文中运行(例如, 因为它调用sleep)
+        // 文件系统初始化必须在常规进程的上下文中运行(例如调用sleep)
         // 因此不能直接在main()中执行
         fsinit(ROOTDEV);
 
         first = 0;
-        // ensure other cores see first=0.
-        __sync_synchronize();  // 内存屏障
+
+        // 内存屏障(确保其他CPU看到)
+        __sync_synchronize();
     }
 
+    // 进行从内核态返回到用户态
     usertrapret();
 }
 

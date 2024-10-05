@@ -223,12 +223,12 @@ static inline uint64 r_time() {
     return x;
 }
 
-// 启用设备中断
+// 启用中断
 static inline void intr_on() {
     w_sstatus(r_sstatus() | SSTATUS_SIE);
 }
 
-// 关闭设备中断
+// 关闭中断
 static inline void intr_off() {
     w_sstatus(r_sstatus() & ~SSTATUS_SIE);
 }

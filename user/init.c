@@ -10,7 +10,8 @@
 
 char* argv[] = {"sh", 0};
 
-// initcode 跳转到此处 (U-mode)
+// -exec file ./user/_init
+// initcode->usys.S->exec.c 执行 exec(init, argv) 跳转到此处 (U-mode)
 int main(void) {
     int pid, wpid;
 
@@ -24,31 +25,38 @@ int main(void) {
     for (;;) {
         printf("init: starting sh\n");
 
+        // 父进程: 返回子进程pid
+        // 子进程: 返回0
         pid = fork();
-        
+
+        // 确保fork成功
         if (pid < 0) {
             printf("init: fork failed\n");
             exit(1);
         }
-        
+
+        // 子进程
         if (pid == 0) {
-            exec("sh", argv);
+            exec("sh", argv);  // 加载sh程序
             printf("init: exec sh failed\n");
             exit(1);
         }
 
         for (;;) {
-            // this call to wait() returns if the shell exits,
-            // or if a parentless process exits.
+            // 等待子进程退出, 返回子进程的pid
             wpid = wait((int*)0);
+
+            // 如果是sh进程退出, 则重新启动
             if (wpid == pid) {
-                // the shell exited; restart it.
                 break;
-            } else if (wpid < 0) {
+            }
+            // 报错
+            else if (wpid < 0) {
                 printf("init: wait returned an error\n");
                 exit(1);
-            } else {
-                // it was a parentless process; do nothing.
+            }
+            // 其他进程退出, 无需处理
+            else {
             }
         }
     }

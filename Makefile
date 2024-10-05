@@ -42,6 +42,7 @@ OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
 # -O: 启用优化
+# -O0: 关闭所有优化
 # -Wall: 打开所有警告
 # -Werror: 将警告转换为错误
 # -Wno-main: 忽略main函数警告
@@ -60,7 +61,7 @@ OBJDUMP = $(TOOLPREFIX)objdump
 
 CFLAGS = -I.
 CFLAGS += -MD
-CFLAGS += -Wall -Werror -O
+CFLAGS += -Wall -Werror -O1
 CFLAGS += -fno-omit-frame-pointer -ggdb -gdwarf-2
 
 CFLAGS += -mcmodel=medany
@@ -175,6 +176,6 @@ qemu: $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)
 
 qemu-gdb: $K/kernel fs.img
-	@echo "*** Now run 'gdb' in another window." 1>&2
+	@echo "> 现在可以启动gdb" 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 

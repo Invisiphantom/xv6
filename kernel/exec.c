@@ -18,6 +18,7 @@ int flags2perm(int flags) {
     return perm;
 }
 
+// initcode->usys.S 执行 exec(init, argv) 跳转到此处 (S-mode)
 int exec(char* path, char** argv) {
     char *s, *last;
     int i, off;
