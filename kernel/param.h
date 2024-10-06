@@ -2,7 +2,7 @@
 
 #define NPROC 64                   // 进程的最大数量
 #define NCPU 8                     // CPU的最大数量
-#define NOFILE 16                  // open files per process
+#define NOFILE 16                  // 每个进程的最大打开文件数
 #define NFILE 100                  // open files per system
 #define NINODE 50                  // 活跃inode的最大数量 (最大inode数为200)
 #define NDEV 10                    // 最大主设备号

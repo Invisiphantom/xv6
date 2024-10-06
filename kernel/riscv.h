@@ -277,10 +277,13 @@ typedef uint64* pagetable_t;  // 512 PTEs
 #define PGSIZE 4096  // 每页大小
 #define PGSHIFT 12   // 页内地址偏移
 
-// 对齐到PGSIZE
-#define PGROUNDUP(sz) (((sz) + PGSIZE - 1) & ~(PGSIZE - 1))
-#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE - 1))
+#define PGROUNDUP(sz) (((sz) + PGSIZE - 1) & ~(PGSIZE - 1))  // 向上对齐PGSIZE
+#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE - 1))               // 向下对齐PGSIZE
 
+// 页表项标志位
+// V=0 : 无效页表项
+// V=1 & R|W|X=0 : 页目录表项
+// V=1 & R|W|X=1 : 页叶子表项
 #define PTE_V (1L << 0)  // 有效位
 #define PTE_R (1L << 1)  // 内核可读位
 #define PTE_W (1L << 2)  // 内核可写位

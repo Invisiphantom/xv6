@@ -23,8 +23,8 @@ struct context {
 struct cpu {
     struct proc* proc;       // 当前CPU上运行的进程, 或者为空
     struct context context;  // 当前保存的调度器上下文 scheduler() <proc.c>
-    int noff;                // push_off 中断禁用计数
-    int intena;              // 中断在 push_off 之前是否被启用
+    int off_num;             // 中断禁用的次数 (push_off增加计数 pop_off减少计数)
+    int intr_enable;         // 中断在 push_off 之前是否被启用
 };
 
 extern struct cpu cpus[NCPU];

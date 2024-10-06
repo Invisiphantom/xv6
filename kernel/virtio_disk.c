@@ -295,7 +295,8 @@ void virtio_disk_rw(struct buf* b, int write) {
     release(&disk.vdisk_lock);
 }
 
-// 处理硬盘中断 (trap.c)
+// 处理硬盘中断
+// trap.c->devintr 识别中断并调用此函数
 void virtio_disk_intr() {
     acquire(&disk.vdisk_lock);  // 获取虚拟硬盘锁
 

@@ -30,7 +30,7 @@
 
 // 文件系统调用通过 begin_op() / end_op() 来标记其开始和结束
 // 通常 begin_op() 只是增加正在进行的文件系统系统调用的计数并返回
-// 但是, 如果它认为日志快要用完, 它会等待其余未完成的 end_op() 
+// 但是, 如果它认为日志快要用完, 它会等待其余未完成的 end_op()
 
 // 硬盘块布局:
 // Boot Block
@@ -41,7 +41,6 @@
 // ...
 // log.start+LOGSIZE-1 -> Log Block N-1
 // Inode Blocks ...
-
 
 struct logheader {
     int n;               // 日志数据块的数量
@@ -141,9 +140,11 @@ void begin_op(void) {
         // 如果当前有提交操作, 则等待
         if (log.committing)
             sleep(&log, &log.lock);
+
         // 如果当前操作可能导致日志溢出, 则等待
         else if (log.lh.n + (log.outstanding + 1) * MAXOPBLOCKS > LOGSIZE)
             sleep(&log, &log.lock);
+
         // 增加当前操作数, 并释放日志锁
         else {
             log.outstanding += 1;  // 日志计数器+1

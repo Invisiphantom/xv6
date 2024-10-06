@@ -159,6 +159,7 @@ void clockintr() {
 // 如果是定时器中断: 返回2
 // 如果是其他设备中断: 返回1
 // 如果不是识别的中断: 返回0
+// usertrap和kerneltrap调用此函数
 int devintr() {
     uint64 scause = r_scause();
 

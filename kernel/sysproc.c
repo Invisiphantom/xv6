@@ -23,6 +23,7 @@ uint64 sys_fork(void) {
 
 uint64 sys_wait(void) {
     uint64 p;
+    // 获取第0个参数
     argaddr(0, &p);
     return wait(p);
 }
