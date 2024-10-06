@@ -1,4 +1,6 @@
 
+# swtch(struct context* a0, struct context* a1)
+# 将当前状态保存到a0, 然后加载新的状态a1
 
 .globl swtch
 swtch:
