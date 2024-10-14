@@ -216,7 +216,7 @@ static inline uint64 r_mcounteren() {
     return x;
 }
 
-// machine-mode cycle counter
+// 机器模式 时钟周期计数器
 static inline uint64 r_time() {
     uint64 x;
     asm volatile("csrr %0, time" : "=r"(x));

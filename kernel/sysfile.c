@@ -49,6 +49,7 @@ static int fdalloc(struct file* f)
     return -1;
 }
 
+// int dup(int fd)
 uint64 sys_dup(void)
 {
     struct file* f;
@@ -62,6 +63,7 @@ uint64 sys_dup(void)
     return fd;
 }
 
+// int read(int fd, char *buf, int n)
 uint64 sys_read(void)
 {
     struct file* f;
@@ -75,6 +77,7 @@ uint64 sys_read(void)
     return fileread(f, p, n);
 }
 
+// int write(int fd, char *buf, int n)
 uint64 sys_write(void)
 {
     struct file* f;
@@ -89,6 +92,7 @@ uint64 sys_write(void)
     return filewrite(f, p, n);
 }
 
+// int close(int fd)
 uint64 sys_close(void)
 {
     int fd;
@@ -101,6 +105,7 @@ uint64 sys_close(void)
     return 0;
 }
 
+// int fstat(int fd, struct stat *st)
 uint64 sys_fstat(void)
 {
     struct file* f;
@@ -112,6 +117,7 @@ uint64 sys_fstat(void)
     return filestat(f, st);
 }
 
+// int link(char *file1, char *file2)
 // 从已有的文件路径, 创建新的路径 指向相同的inode
 uint64 sys_link(void)
 {
@@ -186,6 +192,7 @@ static int isdirempty(struct minode* dp)
     return 1;
 }
 
+// int unlink(char *file)
 // 移除硬链接 (系统调用)
 uint64 sys_unlink(void)
 {
@@ -314,6 +321,7 @@ fail:
     return 0;
 }
 
+// int open(char *file, int flags)
 uint64 sys_open(void)
 {
     char path[MAXPATH];
@@ -382,6 +390,7 @@ uint64 sys_open(void)
     return fd;
 }
 
+// int mkdir(char *dir)
 uint64 sys_mkdir(void)
 {
     char path[MAXPATH];
@@ -397,6 +406,7 @@ uint64 sys_mkdir(void)
     return 0;
 }
 
+// int mknod(char *file, int mode, int dev)
 uint64 sys_mknod(void)
 {
     struct minode* ip;
@@ -416,6 +426,7 @@ uint64 sys_mknod(void)
     return 0;
 }
 
+// int chdir(const char *dir)
 uint64 sys_chdir(void)
 {
     char path[MAXPATH];
@@ -440,6 +451,7 @@ uint64 sys_chdir(void)
     return 0;
 }
 
+// int exec(char *file, char *argv[])
 uint64 sys_exec(void)
 {
     char path[MAXPATH], *argv[MAXARG];
@@ -494,6 +506,7 @@ bad:
     return -1;
 }
 
+// int pipe(int p[])
 uint64 sys_pipe(void)
 {
     uint64 fdarray; // user pointer to array of two integers

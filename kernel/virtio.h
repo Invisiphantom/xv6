@@ -100,5 +100,5 @@ struct virtq_used {
 struct virtio_blk_req {
     uint32 type;      // 读写类型 (VIRTIO_BLK_T_IN | VIRTIO_BLK_T_OUT)
     uint32 reserved;  // 保留位
-    uint64 sector;    // 扇区号
+    uint64 sector;    // 块区号
 };

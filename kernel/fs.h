@@ -26,7 +26,7 @@ struct superblock {
     uint ninodes;    // inode数量 (200项)
     uint nlog;       // 日志块数量 (30块)
     uint logstart;   // 第一个日志块的块号  (第2块)
-    uint inodestart; // 第一个inode块的块号 (第32块)
+    uint inodestart; // 第一个索引块的块号 (第32块)
     uint bmapstart;  // 第一个位图块的块号  (第45块)
 };
 
@@ -44,7 +44,7 @@ struct dinode {
     uint addrs[NDIRECT + 1]; // 文件所占有的块号 (直接块+间接索引块)
 };
 
-// 每个inode块 最多能包含的inode数量
+// 每个索引块 最多能包含的inode数量
 #define IPB (BSIZE / sizeof(struct dinode))
 
 // 根据超级块 计算第i个inode所在的块

@@ -152,8 +152,8 @@ struct minode* ialloc(uint dev, short type)
         if (dip->type == 0) {
             memset(dip, 0, sizeof(*dip)); // 将dinode清零
             dip->type = type;             // 标记dinode类型
-            log_write(bp);                // 写回更新后的dinode块 (日志)
-            brelse(bp);                   // 释放dinode块缓存
+            log_write(bp);                // 写回更新后的d索引块 (日志)
+            brelse(bp);                   // 释放d索引块缓存
             return iget(dev, inum);       // 返回inum对应的minode表项 (内存)
         }
         brelse(bp);
@@ -187,7 +187,7 @@ void iupdate(struct minode* ip)
 // 在minode表中查找inum对应的minode
 // - 如果在minode表中找到, 则返回该minode
 // - 如果没有找到, 则从minode表分配一个新的空minode
-// (不会锁定 inode, 也不从磁盘读取它)
+// (不会锁定 inode, 也不从硬盘读取它)
 static struct minode* iget(uint dev, uint inum)
 {
     struct minode *ip, *empty = 0;

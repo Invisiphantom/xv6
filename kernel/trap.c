@@ -145,6 +145,7 @@ void kerneltrap()
 // 定时器中断处理
 void clockintr()
 {
+    // 唤醒睡眠进程 (sysproc.c->sys_sleep)
     if (cpuid() == 0) {
         acquire(&tickslock);
         ticks++;
@@ -157,32 +158,31 @@ void clockintr()
 }
 
 // 判断当前是外部中断还是软中断, 并处理
-// 如果是定时器中断: 返回2
-// 如果是其他设备中断: 返回1
-// 如果不是识别的中断: 返回0
-// usertrap和kerneltrap调用此函数
+// 定时器中断:2  其他设备中断:1  未知中断:0
+// usertrap, kerneltrap跳转到这里
 int devintr()
 {
     uint64 scause = r_scause();
 
     // 如果是外部设备中断 (PLIC)
     if (scause == 0x8000000000000009L) {
-        // irq 指示当前处理的中断
+        // 从PLIC获取当前中断类型
         int irq = plic_claim();
 
-        // 如果是键盘中断 (UART)
+        // 处理键盘中断 (UART)
         if (irq == UART0_IRQ)
             uartintr();
 
-        // 如果是硬盘中断 (VirtIO)
+        // 处理硬盘中断 (VirtIO)
         else if (irq == VIRTIO0_IRQ)
             virtio_disk_intr();
 
+        // 未知外部中断
         else if (irq)
-            printf("unexpected interrupt irq=%d\n", irq);
+            printf("devintr: 未知外部中断 irq=%d\n", irq);
 
-        // PLIC只允许每个设备同时最多产生一个中断
-        // 现在告诉PLIC 该设备现在可以再次中断
+        // 告诉PLIC当前中断已完成
+        // (PLIC 只允许同时最多产生一个中断)
         if (irq)
             plic_complete(irq);
 
@@ -195,7 +195,6 @@ int devintr()
         return 2;
     }
 
-    else {
+    else
         return 0;
-    }
 }

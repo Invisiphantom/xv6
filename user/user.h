@@ -1,27 +1,29 @@
+
+
 struct stat;
 
-// system calls
-int fork(void);
-int exit(int) __attribute__((noreturn));
-int wait(int*);
-int pipe(int*);
-int write(int, const void*, int);
-int read(int, void*, int);
-int close(int);
-int kill(int);
-int exec(const char*, char**);
-int open(const char*, int);
-int mknod(const char*, short, short);
-int unlink(const char*);
-int fstat(int fd, struct stat*);
-int link(const char*, const char*);
-int mkdir(const char*);
-int chdir(const char*);
-int dup(int);
-int getpid(void);
-char* sbrk(int);
-int sleep(int);
-int uptime(void);
+// 系统调用接口
+int fork();
+int exit(int status) __attribute__((noreturn));
+int wait(int* status);
+int pipe(int p[]);
+int read(int fd, void* buf, int n);
+int kill(int pid);
+int exec(char* file, char* argv[]);
+int fstat(int fd, struct stat* st);
+int chdir(const char* dir);
+int dup(int fd);
+int getpid();
+char* sbrk(int n);
+int sleep(int n);
+int uptime();
+int open(const char* file, int flags);
+int write(int fd, const char* buf, int n);
+int mknod(const char* file, int mode, int dev);
+int unlink(const char* file);
+int link(const char* file1, const char* file2);
+int mkdir(const char* dir);
+int close(int fd);
 
 // ulib.c
 int stat(const char*, struct stat*);

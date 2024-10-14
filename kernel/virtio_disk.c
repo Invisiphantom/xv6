@@ -215,13 +215,13 @@ static int alloc3_desc(int* idx)
 // 0:读取  1:写入
 void virtio_disk_rw(struct buf* b, int write)
 {
-    // 计算块号blockno对应的扇区号
+    // 计算块号blockno对应的块区号
     uint64 sector = b->blockno * (BSIZE / 512);
 
     acquire(&disk.vdisk_lock); // 获取虚拟硬盘锁
 
     // 规范的第5.2.6.4节指出, 传统的块操作使用三个描述符:
-    // 1. 用于指示 读/写 保留位 扇区号
+    // 1. 用于指示 读/写 保留位 块区号
     // 2. 用于指向 内存数据区域
     // 3. 用于指导 单字节的操作结果
 
@@ -246,7 +246,7 @@ void virtio_disk_rw(struct buf* b, int write)
     else
         buf0->type = VIRTIO_BLK_T_IN; // 读取硬盘
     buf0->reserved = 0;               // idx[0]-保留位
-    buf0->sector = sector;            // idx[0]-扇区号
+    buf0->sector = sector;            // idx[0]-块区号
 
     // idx[0]
     disk.desc[idx[0]].addr = (uint64)buf0;                 // 请求头的地址
@@ -302,7 +302,7 @@ void virtio_disk_rw(struct buf* b, int write)
 }
 
 // 处理硬盘中断
-// trap.c->devintr 识别中断并调用此函数
+// trap.c->devintr 识别中断后跳转到这里
 void virtio_disk_intr()
 {
     acquire(&disk.vdisk_lock); // 获取虚拟硬盘锁
