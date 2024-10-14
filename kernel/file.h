@@ -13,36 +13,36 @@
 // [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
 
 struct file {
-    enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;  // 文件类型
-    int ref;                                              // 引用计数
-    char readable;                                        // 可读
-    char writable;                                        // 可写
-    struct pipe* pipe;                                    // FD_PIPE
-    struct minode* ip;                                     // FD_INODE and FD_DEVICE
-    uint off;                                             // FD_INODE
-    short major;                                          // FD_DEVICE
+    enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type; // 文件类型
+    int ref;                                             // 引用计数
+    char readable;                                       // 可读
+    char writable;                                       // 可写
+    struct pipe* pipe;                                   // FD_PIPE
+    struct minode* ip;                                   // FD_INODE and FD_DEVICE
+    uint off;                                            // FD_INODE
+    short major;                                         // FD_DEVICE
 };
 
-#define major(dev) ((dev) >> 16 & 0xFFFF)      // 获取主设备号 (高16位)
-#define minor(dev) ((dev) & 0xFFFF)            // 获取次设备号 (低16位)
-#define mkdev(m, n) ((uint)((m) << 16 | (n)))  // 创建设备号 (主+次)
+#define major(dev) ((dev) >> 16 & 0xFFFF)     // 获取主设备号 (高16位)
+#define minor(dev) ((dev) & 0xFFFF)           // 获取次设备号 (低16位)
+#define mkdev(m, n) ((uint)((m) << 16 | (n))) // 创建设备号 (主+次)
 
 // inode结构体 (内存中)
 struct minode {
-    uint dev;   // 设备号(主+次)
-    uint inum;  // inode编号
-    int ref;    // 引用计数
+    uint dev;  // 设备号(主+次)
+    uint inum; // inode编号
+    int ref;   // 引用计数
 
-    struct sleeplock lock;  // 保护下面的所有内容
-    int valid;              // inode是否已从硬盘读取
+    struct sleeplock lock; // 保护下面的所有内容
+    int valid;             // inode是否已从硬盘读取
 
     // inode (硬盘中的类型) (fs.h)
-    short type;               // 文件类型 (0:空闲 1:目录 2:文件 3:设备)
-    short major;              // 主设备号
-    short minor;              // 次设备号
-    short nlink;              // 硬链接数
-    uint size;                // 文件总大小 (字节)
-    uint addrs[NDIRECT + 1];  // 文件所占有的块号 (直接块+间接索引块)
+    short type;              // 文件类型 (0:空闲 1:目录 2:文件 3:设备)
+    short major;             // 主设备号
+    short minor;             // 次设备号
+    short nlink;             // 硬链接数
+    uint size;               // 文件总大小 (字节)
+    uint addrs[NDIRECT + 1]; // 文件所占有的块号 (直接块+间接索引块)
 };
 
 // 将主设备号映射到设备的读写函数

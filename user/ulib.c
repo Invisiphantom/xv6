@@ -6,13 +6,15 @@
 //
 // wrapper so that it's OK if main() does not call exit().
 //
-void start() {
+void start()
+{
     extern int main();
     main();
     exit(0);
 }
 
-char* strcpy(char* s, const char* t) {
+char* strcpy(char* s, const char* t)
+{
     char* os;
 
     os = s;
@@ -21,13 +23,15 @@ char* strcpy(char* s, const char* t) {
     return os;
 }
 
-int strcmp(const char* p, const char* q) {
+int strcmp(const char* p, const char* q)
+{
     while (*p && *p == *q)
         p++, q++;
     return (uchar)*p - (uchar)*q;
 }
 
-uint strlen(const char* s) {
+uint strlen(const char* s)
+{
     int n;
 
     for (n = 0; s[n]; n++)
@@ -35,7 +39,8 @@ uint strlen(const char* s) {
     return n;
 }
 
-void* memset(void* dst, int c, uint n) {
+void* memset(void* dst, int c, uint n)
+{
     char* cdst = (char*)dst;
     int i;
     for (i = 0; i < n; i++) {
@@ -44,14 +49,16 @@ void* memset(void* dst, int c, uint n) {
     return dst;
 }
 
-char* strchr(const char* s, char c) {
+char* strchr(const char* s, char c)
+{
     for (; *s; s++)
         if (*s == c)
             return (char*)s;
     return 0;
 }
 
-char* gets(char* buf, int max) {
+char* gets(char* buf, int max)
+{
     int i, cc;
     char c;
 
@@ -67,7 +74,8 @@ char* gets(char* buf, int max) {
     return buf;
 }
 
-int stat(const char* n, struct stat* st) {
+int stat(const char* n, struct stat* st)
+{
     int fd;
     int r;
 
@@ -79,7 +87,8 @@ int stat(const char* n, struct stat* st) {
     return r;
 }
 
-int atoi(const char* s) {
+int atoi(const char* s)
+{
     int n;
 
     n = 0;
@@ -88,7 +97,8 @@ int atoi(const char* s) {
     return n;
 }
 
-void* memmove(void* vdst, const void* vsrc, int n) {
+void* memmove(void* vdst, const void* vsrc, int n)
+{
     char* dst;
     const char* src;
 
@@ -106,7 +116,8 @@ void* memmove(void* vdst, const void* vsrc, int n) {
     return vdst;
 }
 
-int memcmp(const void* s1, const void* s2, uint n) {
+int memcmp(const void* s1, const void* s2, uint n)
+{
     const char *p1 = s1, *p2 = s2;
     while (n-- > 0) {
         if (*p1 != *p2) {
@@ -118,6 +129,4 @@ int memcmp(const void* s1, const void* s2, uint n) {
     return 0;
 }
 
-void* memcpy(void* dst, const void* src, uint n) {
-    return memmove(dst, src, n);
-}
+void* memcpy(void* dst, const void* src, uint n) { return memmove(dst, src, n); }

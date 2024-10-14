@@ -24,43 +24,44 @@
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #ifndef static_assert
-#define static_assert(a, b) \
-    do {                    \
-        switch (0)          \
-        case 0:             \
-        case (a):;          \
+#define static_assert(a, b)                                                              \
+    do {                                                                                 \
+        switch (0)                                                                       \
+        case 0:                                                                          \
+        case (a):;                                                                       \
     } while (0)
 #endif
 
-// 磁盘布局 
+// 磁盘布局
 // [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
 // [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
-#define NINODES 200                    // 最大inode数量
-int nbitmap = FSSIZE / BPB + 1;        // 需要的位图块数量
-int ninodeblocks = NINODES / IPB + 1;  // 需要的inode块数量
-int nlog = LOGSIZE;                    // 需要的日志块数量
-int nmeta;                             // 元数据块数量 (boot, sb, nlog, inode, bitmap)
-int nblocks;                           // 数据块数量
+#define NINODES 200                   // 最大inode数量
+int nbitmap = FSSIZE / BPB + 1;       // 需要的位图块数量
+int ninodeblocks = NINODES / IPB + 1; // 需要的inode块数量
+int nlog = LOGSIZE;                   // 需要的日志块数量
+int nmeta;   // 元数据块数量 (boot, sb, nlog, inode, bitmap)
+int nblocks; // 数据块数量
 
-int fsfd;              // fs.img 文件描述符
-struct superblock sb;  // 超级块
-char zeroes[BSIZE];    // 零填充块
-uint freeinode = 1;    // 空闲inode编号
-uint freeblock;        // 空闲数据块
+int fsfd;             // fs.img 文件描述符
+struct superblock sb; // 超级块
+char zeroes[BSIZE];   // 零填充块
+uint freeinode = 1;   // 空闲inode编号
+uint freeblock;       // 空闲数据块
 
-void rsect(uint sec, void* buf);  // 读取磁盘的第sec扇区到buf
-void wsect(uint sec, void* buf);  // 将buf写入到磁盘的第sec扇区
+void rsect(uint sec, void* buf); // 读取磁盘的第sec扇区到buf
+void wsect(uint sec, void* buf); // 将buf写入到磁盘的第sec扇区
 
-uint ialloc(ushort type);                   // 分配类型为type的新inode
-void rinode(uint inum, struct dinode* ip);  // 读取第inum个inode信息到ip
-void winode(uint inum, struct dinode* ip);  // 将inode信息ip写入到对应inode块
-void iappend(uint inum, void* p, int n);    // 向inode追加数据p[n]
+uint ialloc(ushort type);                  // 分配类型为type的新inode
+void rinode(uint inum, struct dinode* ip); // 读取第inum个inode信息到ip
+void winode(uint inum, struct dinode* ip); // 将inode信息ip写入到对应inode块
+void iappend(uint inum, void* p, int n);   // 向inode追加数据p[n]
 
-void balloc(int used);  // 更新首个位图块  used:现已使用的块数
-void die(const char*);  // 打印错误信息并退出
+void balloc(int used); // 更新首个位图块  used:现已使用的块数
+void die(const char*); // 打印错误信息并退出
 
 // 大小端序转换(16位)
-ushort xshort(ushort x) {
+ushort xshort(ushort x)
+{
     ushort y;
     uchar* a = (uchar*)(&y);
     a[0] = x;
@@ -69,7 +70,8 @@ ushort xshort(ushort x) {
 }
 
 // 大小端序转换(32位)
-uint xint(uint x) {
+uint xint(uint x)
+{
     uint y;
     uchar* a = (uchar*)(&y);
     a[0] = x;
@@ -79,7 +81,8 @@ uint xint(uint x) {
     return y;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     int i, cc, fd;
     uint rootino, inum, off;
     struct dirent de;
@@ -107,26 +110,25 @@ int main(int argc, char* argv[]) {
     // 文件系统块 <-> 磁盘扇区
     // 元数据块数量 (boot, sb, nlog, inode, bitmap)
     nmeta = 1 + 1 + nlog + ninodeblocks + nbitmap;
-    nblocks = FSSIZE - nmeta;  // 空闲数据块数量
+    nblocks = FSSIZE - nmeta; // 空闲数据块数量
 
-    sb.magic = FSMAGIC;                            // 魔数
-    sb.size = xint(FSSIZE);                        // 文件系统总块数
-    sb.nblocks = xint(nblocks);                    // 数据块数量
-    sb.ninodes = xint(NINODES);                    // inode数量
-    sb.nlog = xint(nlog);                          // 日志块数量
-    sb.logstart = xint(2);                         // 第一个日志块的块号
-    sb.inodestart = xint(2 + nlog);                // 第一个inode块的块号
-    sb.bmapstart = xint(2 + nlog + ninodeblocks);  // 第一个位图块的块号
+    sb.magic = FSMAGIC;                           // 魔数
+    sb.size = xint(FSSIZE);                       // 文件系统总块数
+    sb.nblocks = xint(nblocks);                   // 数据块数量
+    sb.ninodes = xint(NINODES);                   // inode数量
+    sb.nlog = xint(nlog);                         // 日志块数量
+    sb.logstart = xint(2);                        // 第一个日志块的块号
+    sb.inodestart = xint(2 + nlog);               // 第一个inode块的块号
+    sb.bmapstart = xint(2 + nlog + ninodeblocks); // 第一个位图块的块号
 
-    printf(
-        "total=%d\n"
-        "\tnmeta=%d\n"
-        "\t -boot=1\n"
-        "\t -super=1\n"
-        "\t -log blocks=%u\n"
-        "\t -inode blocks=%u\n"
-        "\t -bitmap blocks=%u\n"
-        "\tdata blocks=%d\n\n",
+    printf("total=%d\n"
+           "\tnmeta=%d\n"
+           "\t -boot=1\n"
+           "\t -super=1\n"
+           "\t -log blocks=%u\n"
+           "\t -inode blocks=%u\n"
+           "\t -bitmap blocks=%u\n"
+           "\tdata blocks=%d\n\n",
         FSSIZE, nmeta, nlog, ninodeblocks, nbitmap, nblocks);
 
     // 第一个可分配的数据块
@@ -211,7 +213,8 @@ int main(int argc, char* argv[]) {
 }
 
 // 读取磁盘的第sec扇区到buf
-void rsect(uint sec, void* buf) {
+void rsect(uint sec, void* buf)
+{
     // 移动fsfd位置到第sec扇区
     if (lseek(fsfd, sec * BSIZE, 0) != sec * BSIZE)
         die("lseek");
@@ -221,7 +224,8 @@ void rsect(uint sec, void* buf) {
 }
 
 // 将buf写入到磁盘的第sec扇区
-void wsect(uint sec, void* buf) {
+void wsect(uint sec, void* buf)
+{
     // 移动fsfd位置到第sec扇区
     if (lseek(fsfd, sec * BSIZE, 0) != sec * BSIZE)
         die("lseek");
@@ -231,7 +235,8 @@ void wsect(uint sec, void* buf) {
 }
 
 // 分配类型为type的新inode
-uint ialloc(ushort type) {
+uint ialloc(ushort type)
+{
     // 分配新的inode编号
     uint inum = freeinode++;
     struct dinode din;
@@ -240,9 +245,9 @@ uint ialloc(ushort type) {
     memset(&din, 0, sizeof(din));
 
     // 转换大小端序
-    din.type = xshort(type);  // 文件类型
-    din.nlink = xshort(1);    // 硬链接数
-    din.size = xint(0);       // 文件大小
+    din.type = xshort(type); // 文件类型
+    din.nlink = xshort(1);   // 硬链接数
+    din.size = xint(0);      // 文件大小
 
     // 将inode信息写入到对应inode块
     winode(inum, &din);
@@ -250,7 +255,8 @@ uint ialloc(ushort type) {
 }
 
 // 读取第inum个inode信息到ip
-void rinode(uint inum, struct dinode* ip) {
+void rinode(uint inum, struct dinode* ip)
+{
     char buf[BSIZE];
     uint bn;
     struct dinode* dip;
@@ -269,7 +275,8 @@ void rinode(uint inum, struct dinode* ip) {
 }
 
 // 将inode信息ip写入到对应inode块
-void winode(uint inum, struct dinode* ip) {
+void winode(uint inum, struct dinode* ip)
+{
     char buf[BSIZE];
     uint bn;
     struct dinode* dip;
@@ -292,13 +299,14 @@ void winode(uint inum, struct dinode* ip) {
 
 // 向指定的inode追加数据xp[n]
 // inum: inode编号  xp: 写入的数据  n: 写入的数据大小
-void iappend(uint inum, void* xp, int n) {
+void iappend(uint inum, void* xp, int n)
+{
     char* p = (char*)xp;
     uint fbn, off, n1;
-    struct dinode din;         // 磁盘inode
-    char buf[BSIZE];           // 读写缓冲区
-    uint indirect[NINDIRECT];  // 间接索引块
-    uint x;                    // 可供写入的文件块
+    struct dinode din;        // 磁盘inode
+    char buf[BSIZE];          // 读写缓冲区
+    uint indirect[NINDIRECT]; // 间接索引块
+    uint x;                   // 可供写入的文件块
 
     // 读取inode信息到din
     rinode(inum, &din);
@@ -341,9 +349,9 @@ void iappend(uint inum, void* xp, int n) {
         // 计算可以写入到当前块x的数据大小
         n1 = min(n, (fbn + 1) * BSIZE - off);
 
-        rsect(x, buf);                            // 读取块x到buf
-        bcopy(p, buf + (off - fbn * BSIZE), n1);  // 将p部分写入到buf
-        wsect(x, buf);                            // 将buf写回到块x
+        rsect(x, buf);                           // 读取块x到buf
+        bcopy(p, buf + (off - fbn * BSIZE), n1); // 将p部分写入到buf
+        wsect(x, buf);                           // 将buf写回到块x
 
         // 继续写入剩余数据
         n -= n1;
@@ -356,12 +364,13 @@ void iappend(uint inum, void* xp, int n) {
 }
 
 // 更新首个位图块  used:现已使用的块数
-void balloc(int used) {
+void balloc(int used)
+{
     uchar buf[BSIZE];
     int i;
 
     printf("balloc: 目前已分配前 %d 块\n", used);
-    assert(used < BPB);  // 保证已用块数 小于 单个位图块 最多能够指示的块数
+    assert(used < BPB); // 保证已用块数 小于 单个位图块 最多能够指示的块数
 
     // 填充位图块内容 (used)
     memset(buf, 0, BSIZE);
@@ -369,11 +378,12 @@ void balloc(int used) {
         buf[i / 8] = buf[i / 8] | (0x1 << (i % 8));
 
     printf("balloc: 位图块处于第 %d 块\n", sb.bmapstart);
-    wsect(sb.bmapstart, buf);  // 将buf写入到位图块
+    wsect(sb.bmapstart, buf); // 将buf写入到位图块
 }
 
 // 打印错误信息并退出
-void die(const char* s) {
+void die(const char* s)
+{
     perror(s);
     exit(1);
 }

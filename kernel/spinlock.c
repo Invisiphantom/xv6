@@ -8,14 +8,16 @@
 #include "defs.h"
 
 // 初始化自旋锁
-void initlock(struct spinlock* lk, char* name) {
-    lk->name = name;  // 锁名称
+void initlock(struct spinlock* lk, char* name)
+{
+    lk->name = name; // 锁名称
     lk->locked = 0;
     lk->cpu = 0;
 }
 
 // 不断循环直到获取自旋锁
-void acquire(struct spinlock* lk) {
+void acquire(struct spinlock* lk)
+{
     // 关闭中断, 避免死锁
     push_off();
 
@@ -32,14 +34,15 @@ void acquire(struct spinlock* lk) {
 
     // 告诉gcc和CPU不要将 前后的内存操作越过此处
     // 以确保关键区的内存使用 严格在锁被获取之后发生
-    __sync_synchronize();  // 内存屏障
+    __sync_synchronize(); // 内存屏障
 
     // 记录当前CPU信息到锁中 (用于调试)
     lk->cpu = mycpu();
 }
 
 // 释放自旋锁
-void release(struct spinlock* lk) {
+void release(struct spinlock* lk)
+{
     // 确保当前CPU持有该锁
     if (!holding(lk))
         panic("release");
@@ -49,7 +52,7 @@ void release(struct spinlock* lk) {
 
     // 告诉gcc和CPU不要将 前后的内存操作越过此处
     // 以确保关键区的内存使用 严格在释放锁之前发生
-    __sync_synchronize();  // 内存屏障
+    __sync_synchronize(); // 内存屏障
 
     // s1 = &lk->locked
     // amoswap.w zero, zero, (s1)  <原子交换操作>
@@ -60,13 +63,15 @@ void release(struct spinlock* lk) {
 }
 
 // 检查当前CPU是否持有锁
-inline int holding(struct spinlock* lk) {
+inline int holding(struct spinlock* lk)
+{
     int r = (lk->locked && lk->cpu == mycpu());
     return r;
 }
 
 // 增加中断禁用计数
-void push_off(void) {
+void push_off(void)
+{
     // 记录当前中断状态
     int old = intr_get();
 
@@ -82,7 +87,8 @@ void push_off(void) {
 }
 
 // 减少中断禁用计数
-void pop_off(void) {
+void pop_off(void)
+{
     struct cpu* c = mycpu();
 
     // 确保此时中断关闭 且计数大于0

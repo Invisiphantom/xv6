@@ -13,7 +13,8 @@
 #include "kernel/riscv.h"
 
 // from FreeBSD.
-int do_rand(unsigned long* ctx) {
+int do_rand(unsigned long* ctx)
+{
     /*
      * Compute x = (7^5 * x) mod (2^31 - 1)
      * without overflowing 31 bits:
@@ -39,11 +40,10 @@ int do_rand(unsigned long* ctx) {
 
 unsigned long rand_next = 1;
 
-int rand(void) {
-    return (do_rand(&rand_next));
-}
+int rand(void) { return (do_rand(&rand_next)); }
 
-void go(int which_child) {
+void go(int which_child)
+{
     int fd = -1;
     static char buf[999];
     char* break0 = sbrk(0);
@@ -236,7 +236,7 @@ void go(int which_child) {
                     exit(1);
                 }
                 close(aa[1]);
-                char* args[3] = {"echo", "hi", 0};
+                char* args[3] = { "echo", "hi", 0 };
                 exec("grindir/../echo", args);
                 fprintf(2, "grind: echo: not found\n");
                 exit(2);
@@ -260,7 +260,7 @@ void go(int which_child) {
                     exit(5);
                 }
                 close(bb[1]);
-                char* args[2] = {"cat", 0};
+                char* args[2] = { "cat", 0 };
                 exec("/cat", args);
                 fprintf(2, "grind: cat: not found\n");
                 exit(6);
@@ -271,7 +271,7 @@ void go(int which_child) {
             close(aa[0]);
             close(aa[1]);
             close(bb[1]);
-            char buf[4] = {0, 0, 0, 0};
+            char buf[4] = { 0, 0, 0, 0 };
             read(bb[0], buf + 0, 1);
             read(bb[0], buf + 1, 1);
             read(bb[0], buf + 2, 1);
@@ -287,7 +287,8 @@ void go(int which_child) {
     }
 }
 
-void iter() {
+void iter()
+{
     unlink("a");
     unlink("b");
 
@@ -325,7 +326,8 @@ void iter() {
     exit(0);
 }
 
-int main() {
+int main()
+{
     while (1) {
         int pid = fork();
         if (pid == 0) {

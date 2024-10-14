@@ -16,18 +16,15 @@ void kernelvec();
 
 extern int devintr();
 
-void trapinit(void) {
-    initlock(&tickslock, "time");
-}
+void trapinit(void) { initlock(&tickslock, "time"); }
 
 // 设置内核异常处理stvec指向kernelvec
-void trapinithart(void) {
-    w_stvec((uint64)kernelvec);
-}
+void trapinithart(void) { w_stvec((uint64)kernelvec); }
 
 // 处理来自用户空间的中断、异常或系统调用
 // trampoline.S->uservec 跳转到此处 (S-mode)
-void usertrap(void) {
+void usertrap(void)
+{
     int which_dev = 0;
 
     // 确保中断来自用户态
@@ -45,6 +42,7 @@ void usertrap(void) {
 
     // 如果是用户系统调用
     if (r_scause() == 8) {
+        // 如果进程有终止标志, 则exit(-1)
         if (killed(p))
             exit(-1);
 
@@ -52,9 +50,9 @@ void usertrap(void) {
         p->trapframe->epc += 4;
 
         // sepc, scause, sstatus已经处理完毕
-        intr_on();  // 重新开启中断
+        intr_on(); // 重新开启中断
 
-        syscall();  // 处理系统调用
+        syscall(); // 处理系统调用
     }
 
     // 如果是设备中断 (键盘, 硬盘, 定时器)
@@ -79,7 +77,8 @@ void usertrap(void) {
 }
 
 // 从内核态返回到用户态
-void usertrapret(void) {
+void usertrapret(void)
+{
     struct proc* p = myproc();
 
     // 因为要将trap的目的地从kerneltrap()切换到usertrap()
@@ -91,18 +90,18 @@ void usertrapret(void) {
     w_stvec(trampoline_uservec);
 
     // 设置uservec()需要使用的值
-    p->trapframe->kernel_satp = r_satp();          // 内核页表 (satp)
-    p->trapframe->kernel_sp = p->kstack + PGSIZE;  // 进程内核栈 (sp)
-    p->trapframe->kernel_trap = (uint64)usertrap;  // 用户中断处理函数 (jr)
-    p->trapframe->kernel_hartid = r_tp();          // 当前CPU的ID (tp)
+    p->trapframe->kernel_satp = r_satp();         // 内核页表 (satp)
+    p->trapframe->kernel_sp = p->kstack + PGSIZE; // 进程内核栈 (sp)
+    p->trapframe->kernel_trap = (uint64)usertrap; // 用户中断处理函数 (jr)
+    p->trapframe->kernel_hartid = r_tp();         // 当前CPU的ID (tp)
 
     // 设置sret将进入用户模式, 并启用中断
     unsigned long x = r_sstatus();
-    x &= ~SSTATUS_SPP;  // sstatus.SPP=0 
-    x |= SSTATUS_SPIE;  // sstatus.SPIE=1
+    x &= ~SSTATUS_SPP; // sstatus.SPP=0
+    x |= SSTATUS_SPIE; // sstatus.SPIE=1
     w_sstatus(x);
 
-    // 设置sret将跳转到的用户PC 
+    // 设置sret将跳转到的用户PC
     w_sepc(p->trapframe->epc);
 
     // 设置用户页表寄存器为 {Sv39, p->pagetable}
@@ -115,7 +114,8 @@ void usertrapret(void) {
 
 // interrupts and exceptions from kernel code go here via kernelvec,
 // on whatever the current kernel stack is.
-void kerneltrap() {
+void kerneltrap()
+{
     int which_dev = 0;
     uint64 sepc = r_sepc();
     uint64 sstatus = r_sstatus();
@@ -143,7 +143,8 @@ void kerneltrap() {
 }
 
 // 定时器中断处理
-void clockintr() {
+void clockintr()
+{
     if (cpuid() == 0) {
         acquire(&tickslock);
         ticks++;
@@ -160,7 +161,8 @@ void clockintr() {
 // 如果是其他设备中断: 返回1
 // 如果不是识别的中断: 返回0
 // usertrap和kerneltrap调用此函数
-int devintr() {
+int devintr()
+{
     uint64 scause = r_scause();
 
     // 如果是外部设备中断 (PLIC)

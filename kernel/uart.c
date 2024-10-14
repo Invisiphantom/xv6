@@ -18,26 +18,26 @@
 // some have different meanings for
 // read vs write.
 // see http://byterunner.com/16550.html
-#define RHR 0  // Receive Holding Reg (输入字节)
-#define THR 0  // Transmit Holding Reg (输出字节)
+#define RHR 0 // Receive Holding Reg (输入字节)
+#define THR 0 // Transmit Holding Reg (输出字节)
 
-#define IER 1                   // Interrupt Enable Reg
-#define IER_RX_ENABLE (1 << 0)  // RHR 中断使能
-#define IER_TX_ENABLE (1 << 1)  // THR 中断使能
+#define IER 1                  // Interrupt Enable Reg
+#define IER_RX_ENABLE (1 << 0) // RHR 中断使能
+#define IER_TX_ENABLE (1 << 1) // THR 中断使能
 
-#define FCR 2                     // FIFO Control Reg (FIFO 控制寄存器)
-#define FCR_FIFO_ENABLE (1 << 0)  // FIFO 启用使能
-#define FCR_FIFO_CLEAR (3 << 1)   // clear the content of the two FIFOs
+#define FCR 2                    // FIFO Control Reg (FIFO 控制寄存器)
+#define FCR_FIFO_ENABLE (1 << 0) // FIFO 启用使能
+#define FCR_FIFO_CLEAR (3 << 1)  // clear the content of the two FIFOs
 
-#define ISR 2  // Interrupt Status Reg (中断状态寄存器)
+#define ISR 2 // Interrupt Status Reg (中断状态寄存器)
 
-#define LCR 3  // Line Control Reg (线路控制寄存器)
-#define LCR_EIGHT_BITS (3 << 0)  // 收发比特长度为8位
-#define LCR_BAUD_LATCH (1 << 7)  // 波特率设置模式
+#define LCR 3                   // Line Control Reg (线路控制寄存器)
+#define LCR_EIGHT_BITS (3 << 0) // 收发比特长度为8位
+#define LCR_BAUD_LATCH (1 << 7) // 波特率设置模式
 
-#define LSR 5                  // Line Status Reg (线路状态寄存器)
-#define LSR_RX_READY (1 << 0)  // input is waiting to be read from RHR
-#define LSR_TX_IDLE (1 << 5)   // THR can accept another character to send
+#define LSR 5                 // Line Status Reg (线路状态寄存器)
+#define LSR_RX_READY (1 << 0) // input is waiting to be read from RHR
+#define LSR_TX_IDLE (1 << 5)  // THR can accept another character to send
 
 #define ReadReg(reg) (*(Reg(reg)))
 #define WriteReg(reg, v) (*(Reg(reg)) = (v))
@@ -46,15 +46,16 @@
 struct spinlock uart_tx_lock;
 #define UART_TX_BUF_SIZE 32
 char uart_tx_buf[UART_TX_BUF_SIZE];
-uint64 uart_tx_w;  // write next to uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE]
-uint64 uart_tx_r;  // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
+uint64 uart_tx_w; // write next to uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE]
+uint64 uart_tx_r; // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
 
-extern volatile int panicked;  // from printf.c
+extern volatile int panicked; // from printf.c
 
 void uartstart();
 
 // 初始化 UART 控制器
-void uartinit(void) {
+void uartinit(void)
+{
     // 关闭中断
     WriteReg(IER, 0x00);
 
@@ -62,8 +63,8 @@ void uartinit(void) {
     WriteReg(LCR, LCR_BAUD_LATCH);
 
     // 设置波特率为 38.4K
-    WriteReg(0, 0x03);  // LSB(低有效位)
-    WriteReg(1, 0x00);  // MSB(高有效位)
+    WriteReg(0, 0x03); // LSB(低有效位)
+    WriteReg(1, 0x00); // MSB(高有效位)
 
     // 退出 波特率设置模式
     // 设置数据位为8位, 无校验位
@@ -85,7 +86,8 @@ void uartinit(void) {
 // because it may block, it can't be called
 // from interrupts; it's only suitable for use
 // by write().
-void uartputc(int c) {
+void uartputc(int c)
+{
     acquire(&uart_tx_lock);
 
     if (panicked) {
@@ -107,7 +109,8 @@ void uartputc(int c) {
 // use interrupts, for use by kernel printf() and
 // to echo characters. it spins waiting for the uart's
 // output reg to be empty.
-void uartputc_sync(int c) {
+void uartputc_sync(int c)
+{
     push_off();
 
     if (panicked) {
@@ -127,7 +130,8 @@ void uartputc_sync(int c) {
 // in the transmit buffer, send it.
 // caller must hold uart_tx_lock.
 // called from both the top- and bottom-half.
-void uartstart() {
+void uartstart()
+{
     while (1) {
         if (uart_tx_w == uart_tx_r) {
             // transmit buffer is empty.
@@ -154,7 +158,8 @@ void uartstart() {
 
 // read one input character from the UART.
 // return -1 if none is waiting.
-int uartgetc(void) {
+int uartgetc(void)
+{
     if (ReadReg(LSR) & 0x01) {
         // input data is ready.
         return ReadReg(RHR);
@@ -166,7 +171,8 @@ int uartgetc(void) {
 // 被devintr()调用
 // 当有新输入字符, 或者输出缓冲区有空间时
 // 处理uart中断, 读取输入字符, 并处理输出缓冲区
-void uartintr(void) {
+void uartintr(void)
+{
     // 读取并处理输入字符
     while (1) {
         int c = uartgetc();

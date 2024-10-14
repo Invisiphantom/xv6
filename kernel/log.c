@@ -43,18 +43,18 @@
 // Inode Blocks ...
 
 struct logheader {
-    int n;               // 日志数据块的数量
-    int block[LOGSIZE];  // 每个日志数据快 对应的 目标块编号
+    int n;              // 日志数据块的数量
+    int block[LOGSIZE]; // 每个日志数据快 对应的 目标块编号
 };
 
 struct log {
-    struct spinlock lock;  // 自旋锁
-    int start;             // 日志头块的块号
-    int size;              // 日志总块数
-    int outstanding;       // 当前文件调用量
-    int committing;        // 是否正在执行提交
-    int dev;               // 设备编号
-    struct logheader lh;   // 日志头
+    struct spinlock lock; // 自旋锁
+    int start;            // 日志头块的块号
+    int size;             // 日志总块数
+    int outstanding;      // 当前文件调用量
+    int committing;       // 是否正在执行提交
+    int dev;              // 设备编号
+    struct logheader lh;  // 日志头
 };
 struct log log;
 
@@ -62,31 +62,33 @@ static void recover_from_log(void);
 static void commit();
 
 // 初始化日志系统 (fs.c->fsinit)
-void initlog(int dev, struct superblock* sb) {
+void initlog(int dev, struct superblock* sb)
+{
     // logheader结构体大小不能超过一个块
     if (sizeof(struct logheader) >= BSIZE)
         panic("initlog: too big logheader");
 
-    initlock(&log.lock, "log");  // 初始化日志锁
-    log.start = sb->logstart;    // 日志头块的块号
-    log.size = sb->nlog;         // 日志块总数
-    log.dev = dev;               // 所属设备号
+    initlock(&log.lock, "log"); // 初始化日志锁
+    log.start = sb->logstart;   // 日志头块的块号
+    log.size = sb->nlog;        // 日志块总数
+    log.dev = dev;              // 所属设备号
 
-    recover_from_log();  // 恢复已有日志
+    recover_from_log(); // 恢复已有日志
 }
 
 // 将所有已提交的日志块 写入到它们的目标硬盘位置
-static void install_trans(int recovering) {
+static void install_trans(int recovering)
+{
     for (int tail = 0; tail < log.lh.n; tail++) {
-        struct buf* lbuf = bread(log.dev, log.start + tail + 1);  // 读取日志数据块
-        struct buf* dbuf = bread(log.dev, log.lh.block[tail]);    // 读取目标块
+        struct buf* lbuf = bread(log.dev, log.start + tail + 1); // 读取日志数据块
+        struct buf* dbuf = bread(log.dev, log.lh.block[tail]);   // 读取目标块
 
-        memmove(dbuf->data, lbuf->data, BSIZE);  // 拷贝数据
-        bwrite(dbuf);                            // 写回目标块
+        memmove(dbuf->data, lbuf->data, BSIZE); // 拷贝数据
+        bwrite(dbuf);                           // 写回目标块
 
         // 恢复模式需要继续保持已有的缓存链块
-        if (recovering == 0)  // 如果不是恢复模式
-            bunpin(dbuf);     // 减少缓存链块的引用
+        if (recovering == 0) // 如果不是恢复模式
+            bunpin(dbuf);    // 减少缓存链块的引用
 
         brelse(lbuf);
         brelse(dbuf);
@@ -94,7 +96,8 @@ static void install_trans(int recovering) {
 }
 
 // 从硬盘读取日志头到内存, 并更新内存中的对应数据
-static void read_head(void) {
+static void read_head(void)
+{
     // 从设备dev读取日志头块start, 并返回锁定的buf
     struct buf* buf = bread(log.dev, log.start);
     // 获取日志头数据
@@ -110,7 +113,8 @@ static void read_head(void) {
 
 // 将内存中的日志头写入硬盘
 // 这是当前事务提交的真正点
-static void write_head(void) {
+static void write_head(void)
+{
     // 从设备dev读取块start, 并返回锁定的buf
     struct buf* buf = bread(log.dev, log.start);
     // 获取日志头数据
@@ -126,16 +130,18 @@ static void write_head(void) {
     brelse(buf);
 }
 
-static void recover_from_log(void) {
-    read_head();       // 从硬盘读取日志头, 并更新内存中的对应数据
-    install_trans(1);  // 将所有已提交的日志块 写入到它们的目标硬盘位置 (恢复模式)
-    log.lh.n = 0;      // 内存中的日志块数量清零
-    write_head();      // 将内存中的日志头写入硬盘
+static void recover_from_log(void)
+{
+    read_head(); // 从硬盘读取日志头, 并更新内存中的对应数据
+    install_trans(1); // 将所有已提交的日志块 写入到它们的目标硬盘位置 (恢复模式)
+    log.lh.n = 0; // 内存中的日志块数量清零
+    write_head(); // 将内存中的日志头写入硬盘
 }
 
 // 在每个文件系统调用的开始部分被调用
-void begin_op(void) {
-    acquire(&log.lock);  // 获取日志锁
+void begin_op(void)
+{
+    acquire(&log.lock); // 获取日志锁
     while (1) {
         // 如果当前有提交操作, 则等待
         if (log.committing)
@@ -147,8 +153,8 @@ void begin_op(void) {
 
         // 增加当前操作数, 并释放日志锁
         else {
-            log.outstanding += 1;  // 日志计数器+1
-            release(&log.lock);    // 释放日志锁
+            log.outstanding += 1; // 日志计数器+1
+            release(&log.lock);   // 释放日志锁
             break;
         }
     }
@@ -156,8 +162,9 @@ void begin_op(void) {
 
 // 在每个文件系统调用的结束部分被调用
 // 在最后一个操作结束时执行提交
-void end_op(void) {
-    acquire(&log.lock);  // 获取日志锁
+void end_op(void)
+{
+    acquire(&log.lock); // 获取日志锁
 
     // 当前操作数-1
     log.outstanding -= 1;
@@ -174,28 +181,29 @@ void end_op(void) {
     }
     // 如果不是最后一个操作, 则唤醒等待进程
     else
-        wakeup(&log);  // begin_op() 可能有操作等待日志空间
+        wakeup(&log); // begin_op() 可能有操作等待日志空间
 
-    release(&log.lock);  // 释放日志锁
+    release(&log.lock); // 释放日志锁
 
     if (do_commit) {
-        commit();  // 提交所有的日志
+        commit(); // 提交所有的日志
 
-        acquire(&log.lock);  // 获取日志锁
-        log.committing = 0;  // 关闭提交标志
-        wakeup(&log);        // begin_op() 可能有操作等待提交完成
-        release(&log.lock);  // 释放日志锁
+        acquire(&log.lock); // 获取日志锁
+        log.committing = 0; // 关闭提交标志
+        wakeup(&log);       // begin_op() 可能有操作等待提交完成
+        release(&log.lock); // 释放日志锁
     }
 }
 
 // 则更新每个日志块, 使其与对应的目标块(缓存)相同
-static void write_log(void) {
+static void write_log(void)
+{
     for (int tail = 0; tail < log.lh.n; tail++) {
-        struct buf* to = bread(log.dev, log.start + tail + 1);  // 日志数据块
-        struct buf* from = bread(log.dev, log.lh.block[tail]);  // 对应的目标块(缓存)
+        struct buf* to = bread(log.dev, log.start + tail + 1); // 日志数据块
+        struct buf* from = bread(log.dev, log.lh.block[tail]); // 对应的目标块(缓存)
 
-        memmove(to->data, from->data, BSIZE);  // 拷贝数据
-        bwrite(to);                            // 将日志块写入硬盘
+        memmove(to->data, from->data, BSIZE); // 拷贝数据
+        bwrite(to);                           // 将日志块写入硬盘
 
         brelse(from);
         brelse(to);
@@ -203,15 +211,16 @@ static void write_log(void) {
 }
 
 // 提交所有的日志
-static void commit() {
+static void commit()
+{
     if (log.lh.n > 0) {
-        write_log();   // 则更新每个日志块, 使其与对应的目标块(缓存)相同
-        write_head();  // 将内存中的日志头写入硬盘
+        write_log(); // 则更新每个日志块, 使其与对应的目标块(缓存)相同
+        write_head(); // 将内存中的日志头写入硬盘
 
-        install_trans(0);  // 将所有已提交的日志块 写入到它们的目标硬盘位置
+        install_trans(0); // 将所有已提交的日志块 写入到它们的目标硬盘位置
 
-        log.lh.n = 0;  // 清空日志数
-        write_head();  // 将内存中的日志头写入硬盘
+        log.lh.n = 0; // 清空日志数
+        write_head(); // 将内存中的日志头写入硬盘
     }
 }
 
@@ -220,10 +229,11 @@ static void commit() {
 // commit()/write_log()将执行硬盘写入
 
 // 用log_write来代替直接写入硬盘的bwrite
-void log_write(struct buf* b) {
+void log_write(struct buf* b)
+{
     int i;
 
-    acquire(&log.lock);  // 获取日志锁
+    acquire(&log.lock); // 获取日志锁
 
     // 确保未超过日志大小
     if (log.lh.n >= LOGSIZE || log.lh.n >= log.size - 1)
@@ -242,9 +252,9 @@ void log_write(struct buf* b) {
 
     // 如果该块不在日志中, 则添加到日志中
     if (i == log.lh.n) {
-        bpin(b);     // 增加缓存链块的引用
-        log.lh.n++;  // 日志块数量+1
+        bpin(b);    // 增加缓存链块的引用
+        log.lh.n++; // 日志块数量+1
     }
 
-    release(&log.lock);  // 释放日志锁
+    release(&log.lock); // 释放日志锁
 }

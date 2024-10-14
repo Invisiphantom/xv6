@@ -15,10 +15,14 @@ exit:
         ecall
         jal exit
 
-init: # init[] = "/init\0"
+
+# init[] = "/init\0"
+init:
   .string "/init\0"
 
 .p2align 2
-argv: # argv[] = { init, 0 }
+
+# argv[] = { init, 0 }
+argv:
   .quad init
   .quad 0

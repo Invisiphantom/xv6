@@ -69,5 +69,5 @@
 //   TRAPFRAME (p->trapframe)
 //   TRAMPOLINE (内核代码段trampoline.S)
 // >高地址
-#define TRAMPOLINE (MAXVA - PGSIZE)      // trampoline页映射到最高虚拟地址, 用于用户和内核空间
-#define TRAPFRAME (TRAMPOLINE - PGSIZE)  // trapframe页映射到trampoline页的相邻低地址
+#define TRAMPOLINE (MAXVA - PGSIZE) // trampoline页映射到最高虚拟地址, 用于用户和内核空间
+#define TRAPFRAME (TRAMPOLINE - PGSIZE) // trapframe页映射到trampoline页的相邻低地址

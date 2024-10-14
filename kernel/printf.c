@@ -26,7 +26,8 @@ static struct {
 static char digits[] = "0123456789abcdef";
 
 // base: 进制   sign: 符号
-static void printint(long long xx, int base, int sign) {
+static void printint(long long xx, int base, int sign)
+{
     char buf[16];
     int i;
     unsigned long long x;
@@ -52,7 +53,8 @@ static void printint(long long xx, int base, int sign) {
         consputc(buf[i]);
 }
 
-static void printptr(uint64 x) {
+static void printptr(uint64 x)
+{
     int i;
     consputc('0');
     consputc('x');
@@ -61,8 +63,9 @@ static void printptr(uint64 x) {
 }
 
 // 打印到终端
-int printf(char* fmt, ...) {
-    va_list ap;  // 可变参数列表
+int printf(char* fmt, ...)
+{
+    va_list ap; // 可变参数列表
     int i, cx, c0, c1, c2, locking;
     char* s;
 
@@ -71,7 +74,7 @@ int printf(char* fmt, ...) {
     if (locking)
         acquire(&pr.lock);
 
-    va_start(ap, fmt);  // 初始化可变参数列表
+    va_start(ap, fmt); // 初始化可变参数列表
 
     for (i = 0; (cx = fmt[i] & 0xff) != 0; i++) {
         // 如果不是%字符, 直接输出
@@ -80,13 +83,13 @@ int printf(char* fmt, ...) {
             continue;
         }
 
-        i++;  // 获取%后的字符
+        i++; // 获取%后的字符
         c0 = fmt[i + 0] & 0xff;
         c1 = c2 = 0;
 
-        if (c0)  // 如果不是NULL
+        if (c0) // 如果不是NULL
             c1 = fmt[i + 1] & 0xff;
-        if (c1)  // 如果不是NULL
+        if (c1) // 如果不是NULL
             c2 = fmt[i + 2] & 0xff;
 
         // 32位有符号整数 (%d)
@@ -169,16 +172,18 @@ int printf(char* fmt, ...) {
     return 0;
 }
 
-void panic(char* s) {
+void panic(char* s)
+{
     pr.locking = 0;
     printf("panic: ");
     printf("%s\n", s);
-    panicked = 1;  // freeze uart output from other CPUs
+    panicked = 1; // freeze uart output from other CPUs
     for (;;)
         ;
 }
 
-void printfinit(void) {
-    initlock(&pr.lock, "pr");  // 初始化pr锁
-    pr.locking = 1;            // 启用pr锁
+void printfinit(void)
+{
+    initlock(&pr.lock, "pr"); // 初始化pr锁
+    pr.locking = 1;           // 启用pr锁
 }

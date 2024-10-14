@@ -40,10 +40,11 @@ struct {
     struct buf head;
 } bcache;
 
-void binit(void) {
+void binit(void)
+{
     struct buf* b;
 
-    initlock(&bcache.lock, "bcache");  // 初始化缓存锁
+    initlock(&bcache.lock, "bcache"); // 初始化缓存锁
 
     // head自环
     bcache.head.prev = &bcache.head;
@@ -54,7 +55,7 @@ void binit(void) {
     for (b = bcache.buf; b < bcache.buf + NBUF; b++) {
         b->next = bcache.head.next;
         b->prev = &bcache.head;
-        initsleeplock(&b->lock, "buffer");  // 为每个缓存块初始化锁
+        initsleeplock(&b->lock, "buffer"); // 为每个缓存块初始化锁
         bcache.head.next->prev = b;
         bcache.head.next = b;
     }
@@ -63,17 +64,18 @@ void binit(void) {
 // 查找缓存链环 是否已缓存设备dev的块blockno
 // 如果未找到, 则分配一个空缓存
 // 无论哪种情况, 返回锁定的缓存
-static struct buf* bget(uint dev, uint blockno) {
+static struct buf* bget(uint dev, uint blockno)
+{
     struct buf* b;
 
-    acquire(&bcache.lock);  // 获取缓存锁
+    acquire(&bcache.lock); // 获取缓存锁
 
     // 从链环头部开始 查找该硬盘块是否已有缓存
     for (b = bcache.head.next; b != &bcache.head; b = b->next) {
         if (b->dev == dev && b->blockno == blockno) {
             b->refcnt++;
-            release(&bcache.lock);   // 释放缓存锁
-            acquiresleep(&b->lock);  // 获取块锁
+            release(&bcache.lock);  // 释放缓存锁
+            acquiresleep(&b->lock); // 获取块锁
             return b;
         }
     }
@@ -81,12 +83,12 @@ static struct buf* bget(uint dev, uint blockno) {
     // 如果没有缓存, 则从缓存链环尾部找到一个闲置的LRU缓存
     for (b = bcache.head.prev; b != &bcache.head; b = b->prev) {
         if (b->refcnt == 0) {
-            b->dev = dev;            // 设备号
-            b->blockno = blockno;    // 块号
-            b->valid = 0;            // 有效位:0
-            b->refcnt = 1;           // 引用计数:1
-            release(&bcache.lock);   // 释放缓存锁
-            acquiresleep(&b->lock);  // 获取块锁
+            b->dev = dev;           // 设备号
+            b->blockno = blockno;   // 块号
+            b->valid = 0;           // 有效位:0
+            b->refcnt = 1;          // 引用计数:1
+            release(&bcache.lock);  // 释放缓存锁
+            acquiresleep(&b->lock); // 获取块锁
             return b;
         }
     }
@@ -94,7 +96,8 @@ static struct buf* bget(uint dev, uint blockno) {
 }
 
 // 从设备dev读取块blockno, 并返回锁定的buf
-struct buf* bread(uint dev, uint blockno) {
+struct buf* bread(uint dev, uint blockno)
+{
     struct buf* b;
 
     // 获取blockno对应的缓存
@@ -109,7 +112,8 @@ struct buf* bread(uint dev, uint blockno) {
 }
 
 // 将缓冲链块b的内容写入硬盘 (必须已被锁定)
-void bwrite(struct buf* b) {
+void bwrite(struct buf* b)
+{
     if (!holdingsleep(&b->lock))
         panic("bwrite");
     virtio_disk_rw(b, 1);
@@ -117,16 +121,17 @@ void bwrite(struct buf* b) {
 
 // 将已锁定的缓存 释放锁
 // 并将移动到LRU列表的头部
-void brelse(struct buf* b) {
+void brelse(struct buf* b)
+{
     // 如果未锁定, 则panic
     if (!holdingsleep(&b->lock))
         panic("brelse");
 
-    releasesleep(&b->lock);  // 释放块锁
+    releasesleep(&b->lock); // 释放块锁
 
-    acquire(&bcache.lock);  // 获取缓存锁
+    acquire(&bcache.lock); // 获取缓存锁
 
-    b->refcnt--;  // 引用减1
+    b->refcnt--; // 引用减1
 
     if (b->refcnt == 0) {
         // 如果引用为0, 则将缓存移动到LRU列表的头部
@@ -142,14 +147,16 @@ void brelse(struct buf* b) {
 }
 
 // 增加缓存链块的引用
-void bpin(struct buf* b) {
+void bpin(struct buf* b)
+{
     acquire(&bcache.lock);
     b->refcnt++;
     release(&bcache.lock);
 }
 
 // 减少缓存链块的引用
-void bunpin(struct buf* b) {
+void bunpin(struct buf* b)
+{
     acquire(&bcache.lock);
     b->refcnt--;
     release(&bcache.lock);

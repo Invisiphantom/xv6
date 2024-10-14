@@ -4,7 +4,8 @@
 
 char buf[512];
 
-void cat(int fd) {
+void cat(int fd)
+{
     int n;
 
     // 从文件描述符fd中读取数据, 并写入标准输出
@@ -20,12 +21,13 @@ void cat(int fd) {
     }
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     int fd, i;
 
     // 如果没有参数, 则打印标准输入
     if (argc <= 1) {
-        cat(0);  // stdin
+        cat(0); // stdin
         exit(0);
     }
 

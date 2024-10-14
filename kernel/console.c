@@ -23,14 +23,15 @@
 #include "proc.h"
 
 #define BACKSPACE 0x100
-#define C(x) ((x) - '@')  // Control-x
+#define C(x) ((x) - '@') // Control-x
 
 //
 // send one character to the uart.
 // called by printf(), and to echo input characters,
 // but not from write().
 //
-void consputc(int c) {
+void consputc(int c)
+{
     if (c == BACKSPACE) {
         // if the user typed backspace, overwrite with a space.
         uartputc_sync('\b');
@@ -47,15 +48,16 @@ struct {
     // input
 #define INPUT_BUF_SIZE 128
     char buf[INPUT_BUF_SIZE];
-    uint r;  // Read index
-    uint w;  // Write index
-    uint e;  // Edit index
+    uint r; // Read index
+    uint w; // Write index
+    uint e; // Edit index
 } cons;
 
 //
 // user write()s to the console go here.
 //
-int consolewrite(int user_src, uint64 src, int n) {
+int consolewrite(int user_src, uint64 src, int n)
+{
     int i;
 
     for (i = 0; i < n; i++) {
@@ -74,7 +76,8 @@ int consolewrite(int user_src, uint64 src, int n) {
 // user_dist indicates whether dst is a user
 // or kernel address.
 //
-int consoleread(int user_dst, uint64 dst, int n) {
+int consoleread(int user_dst, uint64 dst, int n)
+{
     uint target;
     int c;
     char cbuf;
@@ -94,7 +97,7 @@ int consoleread(int user_dst, uint64 dst, int n) {
 
         c = cons.buf[cons.r++ % INPUT_BUF_SIZE];
 
-        if (c == C('D')) {  // end-of-file
+        if (c == C('D')) { // end-of-file
             if (n < target) {
                 // Save ^D for next time, to make sure
                 // caller gets a 0-byte result.
@@ -126,21 +129,22 @@ int consoleread(int user_dst, uint64 dst, int n) {
 // uartintr()调用这个函数来处理输入字符
 // 处理退格/删除, 追加到cons.buf
 // 如果一整行已经到达, 就唤醒consoleread()
-void consoleintr(int c) {
-    acquire(&cons.lock);  // 获取终端锁
+void consoleintr(int c)
+{
+    acquire(&cons.lock); // 获取终端锁
 
     switch (c) {
-        case C('P'):  // Ctrl+P 打印进程列表
+        case C('P'): // Ctrl+P 打印进程列表
             procdump();
             break;
-        case C('U'):  // Ctrl+U 删除整行
+        case C('U'): // Ctrl+U 删除整行
             while (cons.e != cons.w && cons.buf[(cons.e - 1) % INPUT_BUF_SIZE] != '\n') {
                 cons.e--;
                 consputc(BACKSPACE);
             }
             break;
-        case C('H'):  // Ctrl+H 删除一个字符
-        case '\x7f':  // 退格键
+        case C('H'): // Ctrl+H 删除一个字符
+        case '\x7f': // 退格键
             if (cons.e != cons.w) {
                 cons.e--;
                 consputc(BACKSPACE);
@@ -165,10 +169,11 @@ void consoleintr(int c) {
             break;
     }
 
-    release(&cons.lock);  // 释放终端锁
+    release(&cons.lock); // 释放终端锁
 }
 
-void consoleinit(void) {
+void consoleinit(void)
+{
     initlock(&cons.lock, "cons"); // 初始化终端锁
 
     uartinit(); // 初始化UART控制器

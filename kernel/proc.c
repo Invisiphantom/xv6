@@ -12,13 +12,13 @@ struct proc proc[NPROC];
 
 struct proc* initproc;
 
-int nextpid = 1;  // 从1开始分配pid
+int nextpid = 1; // 从1开始分配pid
 struct spinlock pid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc* p);
 
-extern char trampoline[];  // trampoline.S
+extern char trampoline[]; // trampoline.S
 
 // 帮助确保 对等待中的父进程的唤醒不会丢失
 // 在使用p->parent时遵守内存模型
@@ -26,7 +26,8 @@ extern char trampoline[];  // trampoline.S
 struct spinlock wait_lock;
 
 // 为每个进程分配内核栈, 并映射到内核虚拟内存高地址
-void proc_mapstacks(pagetable_t kpgtbl) {
+void proc_mapstacks(pagetable_t kpgtbl)
+{
     struct proc* p;
 
     for (p = proc; p < &proc[NPROC]; p++) {
@@ -40,35 +41,39 @@ void proc_mapstacks(pagetable_t kpgtbl) {
 }
 
 // 初始化进程表
-void procinit(void) {
+void procinit(void)
+{
     struct proc* p;
 
     initlock(&pid_lock, "nextpid");
     initlock(&wait_lock, "wait_lock");
     for (p = proc; p < &proc[NPROC]; p++) {
-        initlock(&p->lock, "proc");           // 初始化进程锁
-        p->state = UNUSED;                    // 未使用状态
-        p->kstack = KSTACK((int)(p - proc));  // 内核栈的KVM地址
+        initlock(&p->lock, "proc");          // 初始化进程锁
+        p->state = UNUSED;                   // 未使用状态
+        p->kstack = KSTACK((int)(p - proc)); // 内核栈的KVM地址
     }
 }
 
 // 被调用时必须关闭中断
 // 以防止与其他CPU上的同进程发生竞争
-inline int cpuid() {
+inline int cpuid()
+{
     int id = r_tp();
     return id;
 }
 
 // 返回当前CPU的cpu结构体
 // 被调用时必顼关闭中断
-inline struct cpu* mycpu(void) {
+inline struct cpu* mycpu(void)
+{
     int id = cpuid();
     struct cpu* c = (struct cpu*)&cpus[id];
     return c;
 }
 
 // 返回当前CPU执行的进程, 如果没有则返回0
-struct proc* myproc(void) {
+struct proc* myproc(void)
+{
     push_off();
     struct cpu* c = mycpu();
     struct proc* p = c->proc;
@@ -77,7 +82,8 @@ struct proc* myproc(void) {
 }
 
 // 分配新的pid
-int allocpid() {
+int allocpid()
+{
     int pid;
 
     acquire(&pid_lock);
@@ -91,21 +97,22 @@ int allocpid() {
 // 在进程表中查找UNUSED进程
 // 如果找到, 初始化内核运行所需的状态并返回 (持有p->lock的锁)
 // 如果没有空闲进程, 或内存分配失败, 返回0
-static struct proc* allocproc(void) {
+static struct proc* allocproc(void)
+{
     struct proc* p;
 
     for (p = proc; p < &proc[NPROC]; p++) {
-        acquire(&p->lock);  // 获取进程锁
+        acquire(&p->lock); // 获取进程锁
         if (p->state == UNUSED)
-            goto found;  // 找到空闲进程
+            goto found; // 找到空闲进程
         else
             release(&p->lock);
     }
     return 0;
 
 found:
-    p->pid = allocpid();  // 分配新的pid
-    p->state = USED;      // 更新状态为USED
+    p->pid = allocpid(); // 分配新的pid
+    p->state = USED;     // 更新状态为USED
 
     // 分配 trapframe 页
     if ((p->trapframe = (struct trapframe*)kalloc()) == 0) {
@@ -122,15 +129,16 @@ found:
         return 0;
     }
 
-    memset(&p->context, 0, sizeof(p->context));  // 清空进程上下文
-    p->context.ra = (uint64)forkret;             // 设置swtch返回后跳转到forkret
-    p->context.sp = p->kstack + PGSIZE;          // 设置内核栈指针 (从高地址向低地址增长)
+    memset(&p->context, 0, sizeof(p->context)); // 清空进程上下文
+    p->context.ra = (uint64)forkret;            // 设置swtch返回后跳转到forkret
+    p->context.sp = p->kstack + PGSIZE; // 设置内核栈指针 (从高地址向低地址增长)
 
     return p;
 }
 
 // 释放进程结构体和相关数据, 包括用户页 (需持有p->lock)
-static void freeproc(struct proc* p) {
+static void freeproc(struct proc* p)
+{
     // 释放 trapframe 页
     if (p->trapframe)
         kfree((void*)p->trapframe);
@@ -165,7 +173,8 @@ static void freeproc(struct proc* p) {
 
 // 对于给定的进程创建一个用户页表
 // 暂时只有trampoline和trapframe页
-pagetable_t proc_pagetable(struct proc* p) {
+pagetable_t proc_pagetable(struct proc* p)
+{
     pagetable_t pagetable;
 
     // 分配并清空一个页
@@ -182,7 +191,8 @@ pagetable_t proc_pagetable(struct proc* p) {
 
     // 映射 p->trapframe 数据页到 TRAMPLINE 的相邻低地址
     // va=TRAPFRAME, pa=p->trapframe, size=PGSIZE, perm=内核可读可写
-    if (mappages(pagetable, TRAPFRAME, PGSIZE, (uint64)(p->trapframe), PTE_R | PTE_W) < 0) {
+    if (mappages(pagetable, TRAPFRAME, PGSIZE, (uint64)(p->trapframe), PTE_R | PTE_W)
+        < 0) {
         uvmunmap(pagetable, TRAMPOLINE, 1, 0);
         uvmfree(pagetable, 0);
         return 0;
@@ -192,21 +202,23 @@ pagetable_t proc_pagetable(struct proc* p) {
 }
 
 // 释放进程的页表, 以及释放其引用的物理内存
-void proc_freepagetable(pagetable_t pagetable, uint64 sz) {
-    uvmunmap(pagetable, TRAMPOLINE, 1, 0);  // 移除trampoline页映射
-    uvmunmap(pagetable, TRAPFRAME, 1, 0);   // 移除trapframe页映射
-    uvmfree(pagetable, sz);                 // 释放用户页表及其物理内存
+void proc_freepagetable(pagetable_t pagetable, uint64 sz)
+{
+    uvmunmap(pagetable, TRAMPOLINE, 1, 0); // 移除trampoline页映射
+    uvmunmap(pagetable, TRAPFRAME, 1, 0);  // 移除trapframe页映射
+    uvmfree(pagetable, sz);                // 释放用户页表及其物理内存
 }
 
 // od -t xC user/initcode
 // 一段用户态程序, 调用exec("/init") <user/initcode.S>
-uchar initcode[] = {0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00, 0x00, 0x93,
-                    0x85, 0x35, 0x02, 0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00, 0x93, 0x08,
-                    0x20, 0x00, 0x73, 0x00, 0x00, 0x00, 0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e,
-                    0x69, 0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+uchar initcode[] = { 0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00,
+    0x00, 0x93, 0x85, 0x35, 0x02, 0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00, 0x93,
+    0x08, 0x20, 0x00, 0x73, 0x00, 0x00, 0x00, 0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e,
+    0x69, 0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 // 初始化第一个用户进程
-void userinit(void) {
+void userinit(void)
+{
     struct proc* p;
 
     // 从进程表中分配空闲进程
@@ -225,8 +237,8 @@ void userinit(void) {
     p->sz = PGSIZE;
 
     // 从内核态到用户态的准备工作
-    p->trapframe->epc = 0;      // 设置trapframe->epc指向initcode
-    p->trapframe->sp = PGSIZE;  // 设置trapframe->sp 指向用户栈顶
+    p->trapframe->epc = 0;     // 设置trapframe->epc指向initcode
+    p->trapframe->sp = PGSIZE; // 设置trapframe->sp 指向用户栈顶
 
     // 设置进程名和当前工作目录
     safestrcpy(p->name, "initcode", sizeof(p->name));
@@ -241,7 +253,8 @@ void userinit(void) {
 
 // sbrk() 的系统调用实现
 // 将用户内存增加或减少n字节
-int growproc(int n) {
+int growproc(int n)
+{
     uint64 sz;
     struct proc* p = myproc();
 
@@ -253,8 +266,8 @@ int growproc(int n) {
         if ((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
             return -1;
         }
-    } 
-    
+    }
+
     // 如果是减少
     else if (n < 0) {
         sz = uvmdealloc(p->pagetable, sz, sz + n);
@@ -267,7 +280,8 @@ int growproc(int n) {
 
 // 从父进程拷贝创建一个新的子进程
 // 设置子进程内核栈数据, 以便返回fork()系统调用
-int fork(void) {
+int fork(void)
+{
     int i, pid;
     struct proc* np;
     struct proc* p = myproc();
@@ -320,7 +334,8 @@ int fork(void) {
 }
 
 // 将p的弃子交给init (调用者必须持有wait_lock)
-void reparent(struct proc* p) {
+void reparent(struct proc* p)
+{
     struct proc* pp;
 
     for (pp = proc; pp < &proc[NPROC]; pp++) {
@@ -333,7 +348,8 @@ void reparent(struct proc* p) {
 
 // 退出当前进程, 不会返回
 // 退出进程会保持ZOMBIE状态, 直到其父进程调用wait回收
-void exit(int status) {
+void exit(int status)
+{
     struct proc* p = myproc();
 
     // 确保不是init进程
@@ -365,8 +381,8 @@ void exit(int status) {
     wakeup(p->parent);
 
     acquire(&p->lock);
-    p->xstate = status;  // 记录退出状态位
-    p->state = ZOMBIE;   // 更新状态为ZOMBIE
+    p->xstate = status; // 记录退出状态位
+    p->state = ZOMBIE;  // 更新状态为ZOMBIE
     release(&wait_lock);
 
     sched(); // 接受调度
@@ -378,12 +394,13 @@ void exit(int status) {
 // 保存退出状态并返回其 pid
 // 如果没有子进程，则返回 -1
 // addr: 存储子进程退出状态
-int wait(uint64 addr) {
+int wait(uint64 addr)
+{
     struct proc* pp;
     int havekids, pid;
     struct proc* p = myproc();
 
-    acquire(&wait_lock);  // 获取等待锁
+    acquire(&wait_lock); // 获取等待锁
 
     for (;;) {
         havekids = 0;
@@ -391,15 +408,18 @@ int wait(uint64 addr) {
         // 遍历所有进程, 寻找p的子进程
         for (pp = proc; pp < &proc[NPROC]; pp++) {
             if (pp->parent == p) {
-                acquire(&pp->lock);  // 获取子进程锁
-                havekids = 1;        // 标记存在子进程
+                acquire(&pp->lock); // 获取子进程锁
+                havekids = 1;       // 标记存在子进程
 
                 // 如果子进程已经退出, 则释放子进程资源
                 if (pp->state == ZOMBIE) {
                     pid = pp->pid;
 
                     // 从内核地址xstate 复制数据到 用户地址addr
-                    if (addr != 0 && copyout(p->pagetable, addr, (char*)&pp->xstate, sizeof(pp->xstate)) < 0) {
+                    if (addr != 0
+                        && copyout(
+                               p->pagetable, addr, (char*)&pp->xstate, sizeof(pp->xstate))
+                            < 0) {
                         release(&pp->lock);
                         release(&wait_lock);
                         return -1;
@@ -407,6 +427,7 @@ int wait(uint64 addr) {
 
                     // 释放子进程所有资源
                     freeproc(pp);
+
                     release(&pp->lock);
                     release(&wait_lock);
                     return pid;
@@ -428,13 +449,14 @@ int wait(uint64 addr) {
 
 // 进程的总调度循环体
 // 每个CPU从 main.c 跳转到此处 (S-mode)
-void scheduler(void) {
+void scheduler(void)
+{
     struct proc* p;
     struct cpu* c = mycpu();
 
     c->proc = 0;
     for (;;) {
-        intr_on();  // 启用设备中断 (防止死锁)
+        intr_on(); // 启用设备中断 (防止死锁)
 
         // 遍历寻找可运行进程
         int found = 0;
@@ -460,15 +482,16 @@ void scheduler(void) {
 
         // 如果没有找到可运行的进程
         if (found == 0) {
-            intr_on();            // 启用设备中断
-            asm volatile("wfi");  // Wait For Interrupt
+            intr_on();           // 启用设备中断
+            asm volatile("wfi"); // Wait For Interrupt
         }
     }
 }
 
 // 保存当前进程上下文, 切换到调度器上下文
 // 之前必须持有p->lock, 并确保进程不处于RUNNING状态
-void sched(void) {
+void sched(void)
+{
     int intr_enable;
     struct proc* p = myproc();
 
@@ -485,13 +508,15 @@ void sched(void) {
     if (intr_get())
         panic("sched interruptible");
 
-    intr_enable = mycpu()->intr_enable;     // 暂存当前中断状态
-    swtch(&p->context, &mycpu()->context);  // 保存当前进程上下文, 并切换到调度器 scheduler()
-    mycpu()->intr_enable = intr_enable;     // 恢复当前中断状态
+    intr_enable = mycpu()->intr_enable; // 暂存当前中断状态
+    swtch(
+        &p->context, &mycpu()->context); // 保存当前进程上下文, 并切换到调度器 scheduler()
+    mycpu()->intr_enable = intr_enable; // 恢复当前中断状态
 }
 
 // 让出CPU, 并将当前进程状态设置为RUNNABLE
-void yield(void) {
+void yield(void)
+{
     struct proc* p = myproc();
     acquire(&p->lock);
     p->state = RUNNABLE;
@@ -500,9 +525,10 @@ void yield(void) {
 }
 
 // 新分配进程调度 swtch 后跳转到此处 (S-mode)
-void forkret(void) {
+void forkret(void)
+{
     // 函数内部静态变量
-    static int first = 1;  // 标记是否为第一个用户进程
+    static int first = 1; // 标记是否为第一个用户进程
 
     // 释放在scheduler()中获取的进程锁
     release(&myproc()->lock);
@@ -524,7 +550,8 @@ void forkret(void) {
 }
 
 // 释放锁lk 并在chan上休眠, 醒来时重新获取锁
-void sleep(void* chan, struct spinlock* lk) {
+void sleep(void* chan, struct spinlock* lk)
+{
     struct proc* p = myproc();
 
     // 必须持有p->lock才能修改p->state
@@ -546,7 +573,8 @@ void sleep(void* chan, struct spinlock* lk) {
 
 // 唤醒所有在chan上休眠的进程
 // 必须在没有任何p->lock的情况下调用
-void wakeup(void* chan) {
+void wakeup(void* chan)
+{
     struct proc* p;
 
     // 遍历所有进程, 启用所有在chan上休眠的进程
@@ -561,7 +589,8 @@ void wakeup(void* chan) {
 }
 
 // 终止给定pid的进程
-int kill(int pid) {
+int kill(int pid)
+{
     struct proc* p;
 
     // 遍历所有进程, 查找pid
@@ -584,14 +613,16 @@ int kill(int pid) {
 }
 
 // 设置进程p的killed标志为1
-void setkilled(struct proc* p) {
+void setkilled(struct proc* p)
+{
     acquire(&p->lock);
     p->killed = 1;
     release(&p->lock);
 }
 
 // 返回进程p的killed标志
-int killed(struct proc* p) {
+int killed(struct proc* p)
+{
     acquire(&p->lock);
     int k = p->killed;
     release(&p->lock);
@@ -600,7 +631,8 @@ int killed(struct proc* p) {
 
 // user_dst=1 : dst是用户虚拟地址
 // user_dst=0 : dst是内核地址
-int either_copyout(int user_dst, uint64 dst, void* src, uint64 len) {
+int either_copyout(int user_dst, uint64 dst, void* src, uint64 len)
+{
     struct proc* p = myproc();
     // 如果是用户地址, 则调用copyout
     if (user_dst) {
@@ -615,7 +647,8 @@ int either_copyout(int user_dst, uint64 dst, void* src, uint64 len) {
 
 // 从用户或内核地址src复制数据到dst
 // user_src  1:从用户空间  0:从内核空间
-int either_copyin(void* dst, int user_src, uint64 src, uint64 len) {
+int either_copyin(void* dst, int user_src, uint64 src, uint64 len)
+{
     struct proc* p = myproc();
 
     // 如果是用户地址, 则调用copyin
@@ -633,9 +666,14 @@ int either_copyin(void* dst, int user_src, uint64 src, uint64 len) {
 // 打印进程列表 (调试用)
 // 当用户在控制台上按下Ctrl+P时运行
 // 为了避免进一步卡住已经卡住的机器, 不使用锁
-void procdump(void) {
-    static char* states[] = {[UNUSED] "unused",   [USED] "used",      [SLEEPING] "sleep ",
-                             [RUNNABLE] "runble", [RUNNING] "run   ", [ZOMBIE] "zombie"};
+void procdump(void)
+{
+    static char* states[] = { [UNUSED] "unused",
+        [USED] "used",
+        [SLEEPING] "sleep ",
+        [RUNNABLE] "runble",
+        [RUNNING] "run   ",
+        [ZOMBIE] "zombie" };
     struct proc* p;
     char* state;
 

@@ -24,19 +24,22 @@ struct {
     struct run* freelist;
 } kmem;
 
-void kinit() {
-    initlock(&kmem.lock, "kmem");    // 初始化kmem锁
-    freerange(end, (void*)PHYSTOP);  // 释放所有堆页到空闲链表
+void kinit()
+{
+    initlock(&kmem.lock, "kmem");   // 初始化kmem锁
+    freerange(end, (void*)PHYSTOP); // 释放所有堆页到空闲链表
 }
 
-void freerange(void* pa_start, void* pa_end) {
-    char* p = (char*)PGROUNDUP((uint64)pa_start);  // 对齐PGSIZE
+void freerange(void* pa_start, void* pa_end)
+{
+    char* p = (char*)PGROUNDUP((uint64)pa_start); // 对齐PGSIZE
     for (; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
-        kfree(p);  // 释放到空闲链表
+        kfree(p); // 释放到空闲链表
 }
 
 // 释放pa指向的物理内存页, 通常应该由kalloc()返回
-void kfree(void* pa) {
+void kfree(void* pa)
+{
     struct run* r;
 
     // 如果未对齐PGSIZE, 或者小于end, 或者大于等于PHYSTOP, 则panic
@@ -55,7 +58,8 @@ void kfree(void* pa) {
 }
 
 // 直接分配4096字节的物理内存页
-void* kalloc(void) {
+void* kalloc(void)
+{
     struct run* r;
 
     acquire(&kmem.lock);
@@ -64,7 +68,7 @@ void* kalloc(void) {
         kmem.freelist = r->next;
     release(&kmem.lock);
 
-    if (r)  // 填充垃圾
+    if (r) // 填充垃圾
         memset((char*)r, 5, PGSIZE);
     return (void*)r;
 }

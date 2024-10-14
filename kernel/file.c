@@ -21,12 +21,11 @@ struct {
     struct file file[NFILE];
 } ftable;
 
-void fileinit(void) {
-    initlock(&ftable.lock, "ftable");
-}
+void fileinit(void) { initlock(&ftable.lock, "ftable"); }
 
 // Allocate a file structure.
-struct file* filealloc(void) {
+struct file* filealloc(void)
+{
     struct file* f;
 
     acquire(&ftable.lock);
@@ -42,7 +41,8 @@ struct file* filealloc(void) {
 }
 
 // Increment ref count for file f.
-struct file* filedup(struct file* f) {
+struct file* filedup(struct file* f)
+{
     acquire(&ftable.lock);
     if (f->ref < 1)
         panic("filedup");
@@ -52,7 +52,8 @@ struct file* filedup(struct file* f) {
 }
 
 // Close file f.  (Decrement ref count, close when reaches 0.)
-void fileclose(struct file* f) {
+void fileclose(struct file* f)
+{
     struct file ff;
 
     acquire(&ftable.lock);
@@ -78,14 +79,15 @@ void fileclose(struct file* f) {
 
 // 获取文件f的元数据
 // 将文件f的元数据写入addr指向的用户虚拟地址
-int filestat(struct file* f, uint64 addr) {
+int filestat(struct file* f, uint64 addr)
+{
     struct proc* p = myproc();
     struct stat st;
 
     if (f->type == FD_INODE || f->type == FD_DEVICE) {
-        ilock(f->ip);       // 获取inode锁
-        stati(f->ip, &st);  // 拷贝inode信息到stat结构体
-        iunlock(f->ip);     // 释放inode锁
+        ilock(f->ip);      // 获取inode锁
+        stati(f->ip, &st); // 拷贝inode信息到stat结构体
+        iunlock(f->ip);    // 释放inode锁
         // 将stat结构体写入用户空间
         if (copyout(p->pagetable, addr, (char*)&st, sizeof(st)) < 0)
             return -1;
@@ -96,7 +98,8 @@ int filestat(struct file* f, uint64 addr) {
 
 // 从文件f读取数据
 // 地址addr是用户虚拟地址
-int fileread(struct file* f, uint64 addr, int n) {
+int fileread(struct file* f, uint64 addr, int n)
+{
     int r = 0;
 
     if (f->readable == 0)
@@ -122,7 +125,8 @@ int fileread(struct file* f, uint64 addr, int n) {
 
 // Write to file f.
 // addr is a user virtual address.
-int filewrite(struct file* f, uint64 addr, int n) {
+int filewrite(struct file* f, uint64 addr, int n)
+{
     int r, ret = 0;
 
     if (f->writable == 0)

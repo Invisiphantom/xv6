@@ -1,6 +1,7 @@
 #include "types.h"
 
-void* memset(void* dst, int c, uint n) {
+void* memset(void* dst, int c, uint n)
+{
     char* cdst = (char*)dst;
     int i;
     for (i = 0; i < n; i++) {
@@ -9,7 +10,8 @@ void* memset(void* dst, int c, uint n) {
     return dst;
 }
 
-int memcmp(const void* v1, const void* v2, uint n) {
+int memcmp(const void* v1, const void* v2, uint n)
+{
     const uchar *s1, *s2;
 
     s1 = v1;
@@ -23,7 +25,8 @@ int memcmp(const void* v1, const void* v2, uint n) {
     return 0;
 }
 
-void* memmove(void* dst, const void* src, uint n) {
+void* memmove(void* dst, const void* src, uint n)
+{
     const char* s;
     char* d;
 
@@ -45,12 +48,11 @@ void* memmove(void* dst, const void* src, uint n) {
 }
 
 // memcpy exists to placate GCC.  Use memmove.
-void* memcpy(void* dst, const void* src, uint n) {
-    return memmove(dst, src, n);
-}
+void* memcpy(void* dst, const void* src, uint n) { return memmove(dst, src, n); }
 
 // 比较字符串s和t的前n个字符
-int strncmp(const char* p, const char* q, uint n) {
+int strncmp(const char* p, const char* q, uint n)
+{
     while (n > 0 && *p && *p == *q)
         n--, p++, q++;
     if (n == 0)
@@ -58,7 +60,8 @@ int strncmp(const char* p, const char* q, uint n) {
     return (uchar)*p - (uchar)*q;
 }
 
-char* strncpy(char* s, const char* t, int n) {
+char* strncpy(char* s, const char* t, int n)
+{
     char* os;
 
     os = s;
@@ -70,7 +73,8 @@ char* strncpy(char* s, const char* t, int n) {
 }
 
 // 将t复制到s, 最多n个字符, 并保证s以null结尾
-char* safestrcpy(char* s, const char* t, int n) {
+char* safestrcpy(char* s, const char* t, int n)
+{
     char* os;
 
     os = s;
@@ -83,7 +87,8 @@ char* safestrcpy(char* s, const char* t, int n) {
 }
 
 // 返回字符串s的长度(不包括结尾null)
-int strlen(const char* s) {
+int strlen(const char* s)
+{
     int n;
 
     for (n = 0; s[n]; n++)

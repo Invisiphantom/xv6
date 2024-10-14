@@ -6,29 +6,28 @@
 #include "spinlock.h"
 #include "proc.h"
 
-uint64 sys_exit(void) {
+uint64 sys_exit(void)
+{
     int n;
     argint(0, &n);
     exit(n);
-    return 0;  // not reached
+    return 0; // not reached
 }
 
-uint64 sys_getpid(void) {
-    return myproc()->pid;
-}
+uint64 sys_getpid(void) { return myproc()->pid; }
 
-uint64 sys_fork(void) {
-    return fork();
-}
+uint64 sys_fork(void) { return fork(); }
 
-uint64 sys_wait(void) {
+uint64 sys_wait(void)
+{
     uint64 p;
     // 获取第0个参数
     argaddr(0, &p);
     return wait(p);
 }
 
-uint64 sys_sbrk(void) {
+uint64 sys_sbrk(void)
+{
     uint64 addr;
     int n;
 
@@ -39,7 +38,8 @@ uint64 sys_sbrk(void) {
     return addr;
 }
 
-uint64 sys_sleep(void) {
+uint64 sys_sleep(void)
+{
     int n;
     uint ticks0;
 
@@ -59,7 +59,8 @@ uint64 sys_sleep(void) {
     return 0;
 }
 
-uint64 sys_kill(void) {
+uint64 sys_kill(void)
+{
     int pid;
 
     argint(0, &pid);
@@ -68,7 +69,8 @@ uint64 sys_kill(void) {
 
 // return how many clock tick interrupts have occurred
 // since start.
-uint64 sys_uptime(void) {
+uint64 sys_uptime(void)
+{
     uint xticks;
 
     acquire(&tickslock);
