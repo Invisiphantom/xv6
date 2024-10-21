@@ -92,7 +92,7 @@ struct proc {
     pagetable_t pagetable;        // 用户页表
     struct trapframe* trapframe;  // data page for trampoline.S
     struct context context;       // 进程上下文
-    struct file* ofile[NOFILE];   // 已打开的文件
+    struct file* ofile[NOFILE];   // 当前打开的文件
     struct minode* cwd;           // 当前工作目录 (inode)
     char name[16];                // 进程名 (debugging)
 };

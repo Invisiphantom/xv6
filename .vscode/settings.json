@@ -11,6 +11,7 @@
         "stat.h": "c",
         "buf.h": "c",
         "file.h": "c",
-        "param.h": "c"
+        "param.h": "c",
+        "user.h": "c"
     }
 }

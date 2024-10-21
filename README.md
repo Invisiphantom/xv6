@@ -93,29 +93,29 @@ mv compile_commands.json .vscode/
 # xv6系统调用
 
 
-|     | System Call                                      | Desc                                                          |
-| --- | ------------------------------------------------ | ------------------------------------------------------------- |
-| 1   | `int fork()`                                     | 复制新进程, 共享fd-offset, 父进程返回子进程的pid, 子进程返回0 |
-| 2   | `int exit(int status)`                           | 终止当前进程, 将status传递给wait()等待进程                    |
-| 3   | `int wait(int* status)`                          | 等待子进程退出, 返回子进程的pid, 用status存储其退出状态       |
-| 4   | `int pipe(int p[])`                              | 创建管道, 读:p[0], 写:p[1], 所有写端关闭后, 读端返回EOF       |
-| 5   | `int read(int fd, void* buf, int n)`             | 从文件描述符fd中读取n字节到buf, 返回读取的字节数, EOF返回0    |
-| 6   | `int kill(int pid)`                              | 终止进程pid                                                   |
-| 7   | `int exec(char* file, char* argv[])`             | 加载可执行文件file, 传递参数argv, 只在出错时返回              |
-| 8   | `int fstat(int fd, struct stat* st)`             | 将fd的状态存储到st                                            |
-| 9   | `int chdir(const char* dir)`                     | 改变当前工作目录                                              |
-| 10  | `int dup(int fd)`                                | 复制文件描述符fd, 但共享offset, 返回新的文件描述符            |
-| 11  | `int getpid()`                                   | 返回当前进程的pid                                             |
-| 12  | `char* sbrk(int n)`                              | 扩展进程内存n字节, 返回新内存的起始地址                       |
-| 13  | `int sleep(int n)`                               | 休眠n秒CPU时钟                                                |
-| 14  | `int uptime()`                                   | 返回系统启动以来的时间                                        |
-| 15  | `int open(const char* file, int flags)`          | 打开文件, flags表示读/写, 返回文件描述符                      |
-| 16  | `int write(int fd, const char* buf, int n)`      | 将buf中的n字节写入文件描述符fd, 返回写入的字节数              |
-| 17  | `int mknod(const char* file, int mode, int dev)` | 创建设备文件                                                  |
-| 18  | `int unlink(const char* file)`                   | 删除文件链接                                                  |
-| 19  | `int link(const char* file1, const char* file2)` | 给file1创建新的硬链接file2                                    |
-| 20  | `int mkdir(const char* dir)`                     | 创建新目录                                                    |
-| 21  | `int close(int fd)`                              | 关闭文件描述符fd                                              |
+|     | System Call                                      | Desc                                                       |
+| --- | ------------------------------------------------ | ---------------------------------------------------------- |
+| 1   | `int fork()`                                     | 复制新进程, 父进程返回子进程的pid, 子进程返回0             |
+| 2   | `int exit(int status)`                           | 终止当前进程, 将status传递给wait()等待进程                 |
+| 3   | `int wait(int* status)`                          | 等待子进程退出, 返回子进程的pid, 用status存储其退出状态    |
+| 4   | `int pipe(int p[])`                              | 创建管道, 读:p[0], 写:p[1], 所有写端关闭后, 读端返回EOF    |
+| 5   | `int read(int fd, void* buf, int n)`             | 从文件描述符fd中读取n字节到buf, 返回读取的字节数, EOF返回0 |
+| 6   | `int kill(int pid)`                              | 终止进程pid                                                |
+| 7   | `int exec(char* file, char* argv[])`             | 加载可执行文件file, 传递参数argv, 只在出错时返回           |
+| 8   | `int fstat(int fd, struct stat* st)`             | 将fd的状态存储到st                                         |
+| 9   | `int chdir(const char* dir)`                     | 改变当前工作目录                                           |
+| 10  | `int dup(int fd)`                                | 复制文件描述符fd, 但共享offset, 返回新的文件描述符         |
+| 11  | `int getpid()`                                   | 返回当前进程的pid                                          |
+| 12  | `char* sbrk(int n)`                              | 扩展进程内存n字节, 返回新内存的起始地址                    |
+| 13  | `int sleep(int n)`                               | 休眠n秒CPU时钟                                             |
+| 14  | `int uptime()`                                   | 返回系统启动以来的时间                                     |
+| 15  | `int open(const char* file, int flags)`          | 打开文件, flags表示读/写, 返回文件描述符                   |
+| 16  | `int write(int fd, const char* buf, int n)`      | 将buf中的n字节写入文件描述符fd, 返回写入的字节数           |
+| 17  | `int mknod(const char* file, int mode, int dev)` | 创建设备文件                                               |
+| 18  | `int unlink(const char* file)`                   | 删除文件链接                                               |
+| 19  | `int link(const char* file1, const char* file2)` | 给file1创建新的硬链接file2                                 |
+| 20  | `int mkdir(const char* dir)`                     | 创建新目录                                                 |
+| 21  | `int close(int fd)`                              | 关闭文件描述符fd                                           |
 
 
 

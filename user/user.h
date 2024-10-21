@@ -2,7 +2,7 @@
 
 struct stat;
 
-// 系统调用接口
+// 系统调用接口 (usys.S)
 int fork();
 int exit(int status) __attribute__((noreturn));
 int wait(int* status);
@@ -21,7 +21,7 @@ int open(const char* file, int flags);
 int write(int fd, const char* buf, int n);
 int mknod(const char* file, int mode, int dev);
 int unlink(const char* file);
-int link(const char* file1, const char* file2);
+int link(const char* old, const char* new);
 int mkdir(const char* dir);
 int close(int fd);
 

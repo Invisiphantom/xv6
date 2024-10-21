@@ -16,31 +16,34 @@
 #include "file.h"
 #include "fcntl.h"
 
-// Fetch the nth word-sized system call argument as a file descriptor
-// and return both the descriptor and the corresponding struct file.
+// 获取第n个系统调用参数 (文件描述符)
+// 返回文件描述符和对应的文件结构体
+// n:参数索引  pdf:文件描述符值  pf:文件结构体
 static int argfd(int n, int* pfd, struct file** pf)
 {
     int fd;
-    struct file* f;
-
     argint(n, &fd);
+
+    struct file* f;
     if (fd < 0 || fd >= NOFILE || (f = myproc()->ofile[fd]) == 0)
         return -1;
+
     if (pfd)
         *pfd = fd;
+
     if (pf)
         *pf = f;
+
     return 0;
 }
 
-// Allocate a file descriptor for the given file.
-// Takes over file reference from caller on success.
+// 对于给定的文件 分配一个文件描述符
 static int fdalloc(struct file* f)
 {
-    int fd;
     struct proc* p = myproc();
 
-    for (fd = 0; fd < NOFILE; fd++) {
+    // 遍历进程的文件描述符表, 分配空闲文件描述符
+    for (int fd = 0; fd < NOFILE; fd++) {
         if (p->ofile[fd] == 0) {
             p->ofile[fd] = f;
             return fd;
@@ -52,14 +55,20 @@ static int fdalloc(struct file* f)
 // int dup(int fd)
 uint64 sys_dup(void)
 {
-    struct file* f;
     int fd;
 
+    // 获取对应文件结构体
+    struct file* f;
     if (argfd(0, 0, &f) < 0)
         return -1;
+
+    // 分配 指向相同文件结构体的 新文件描述符
     if ((fd = fdalloc(f)) < 0)
         return -1;
+
+    // 增加引用计数
     filedup(f);
+
     return fd;
 }
 
@@ -67,14 +76,16 @@ uint64 sys_dup(void)
 uint64 sys_read(void)
 {
     struct file* f;
-    int n;
-    uint64 p;
-
-    argaddr(1, &p);
-    argint(2, &n);
     if (argfd(0, 0, &f) < 0)
         return -1;
-    return fileread(f, p, n);
+
+    uint64 buf;
+    argaddr(1, &buf);
+
+    int n;
+    argint(2, &n);
+
+    return fileread(f, buf, n);
 }
 
 // int write(int fd, char *buf, int n)
@@ -117,8 +128,8 @@ uint64 sys_fstat(void)
     return filestat(f, st);
 }
 
-// int link(char *file1, char *file2)
-// 从已有的文件路径, 创建新的路径 指向相同的inode
+// int link(char *old, char *new)
+// 从已有的文件路径old 创建新的路径new 指向相同的inode
 uint64 sys_link(void)
 {
     char name[DIRSIZ], new[MAXPATH], old[MAXPATH];

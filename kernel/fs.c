@@ -239,7 +239,7 @@ void ilock(struct minode* ip)
     struct dinode* dip;
 
     // 确保minode非空闲
-    if (ip == 0 || ip->ref < 1)
+    if (ip == 0 || ip->ref <= 0)
         panic("ilock");
 
     acquiresleep(&ip->lock); // 获取inode锁
@@ -400,17 +400,18 @@ void stati(struct minode* ip, struct stat* st)
     st->size = ip->size;
 }
 
-// 调用者必须持有ip->lock
-// user_dst=1 : dst是用户虚拟地址
+// 读取文件的n个字节到dst
+// 返回成功读取的字节数
+// (调用者必须持有ip->lock)
+// user_dst=1 : dst是用户地址
 // user_dst=0 : dst是内核地址
-// 读取inode[off, off+n]的数据到dst[n], 返回成功读取的字节数
 int readi(struct minode* ip, int user_dst, uint64 dst, uint off, uint n)
 {
     uint total, m;
     struct buf* bp;
 
-    // 确保偏移量在文件范围内 并且不会溢出
-    if (off > ip->size || off + n < off)
+    // 确保偏移量在文件范围内
+    if (off >= ip->size || n <= 0)
         return 0;
 
     // 如果总长度超过文件总大小, 则截断

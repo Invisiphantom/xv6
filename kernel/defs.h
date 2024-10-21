@@ -49,7 +49,7 @@ void            iupdate(struct minode*);
 int             namecmp(const char*, const char*);
 struct minode*   namei(char*);
 struct minode*   nameiparent(char*, char*);
-int             readi(struct minode*, int, uint64, uint, uint);
+int             readi(struct minode* ip, int user_dst, uint64 dst, uint off, uint n);
 void            stati(struct minode*, struct stat*);
 int             writei(struct minode*, int, uint64, uint, uint);
 void            itrunc(struct minode*);

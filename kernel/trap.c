@@ -6,8 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
-struct spinlock tickslock;
-uint ticks;
+struct spinlock tickslock; // 定时中断计数锁
+uint ticks;                // 定时器中断计数
 
 extern char trampoline[], uservec[], userret[];
 
@@ -112,8 +112,7 @@ void usertrapret(void)
     ((void (*)(uint64))trampoline_userret)(satp);
 }
 
-// interrupts and exceptions from kernel code go here via kernelvec,
-// on whatever the current kernel stack is.
+// kernelvec.S 跳转到此处
 void kerneltrap()
 {
     int which_dev = 0;
@@ -143,6 +142,7 @@ void kerneltrap()
 }
 
 // 定时器中断处理
+// trap.c->devintr 跳转到这里
 void clockintr()
 {
     // 唤醒睡眠进程 (sysproc.c->sys_sleep)
@@ -153,13 +153,13 @@ void clockintr()
         release(&tickslock);
     }
 
-    // 设置下一次定时器中断(大约是 0.1秒)
+    // 设置下一次定时器中断(大约是1秒)
     w_stimecmp(r_time() + 1000000);
 }
 
-// 判断当前是外部中断还是软中断, 并处理
+// 判断并处理 当前的设备中断
 // 定时器中断:2  其他设备中断:1  未知中断:0
-// usertrap, kerneltrap跳转到这里
+// usertrap, kerneltrap 跳转到这里
 int devintr()
 {
     uint64 scause = r_scause();

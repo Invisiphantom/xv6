@@ -2,7 +2,7 @@
 
 # 生成 usys.S 系统调用函数入口 (kernel/syscall.c)
 
-print "\n#include \"kernel/syscall.h\"\n";
+print "\n#include \"kernel/syscall.h\"\n\n\n";
 
 sub entry {
     my $name = shift;
@@ -21,10 +21,7 @@ entry("read");
 entry("write");
 entry("close");
 entry("kill");
-
-print "# initcode 执行 exec(init, argv) 跳转到此处 (U-mode)\n";
 entry("exec");
-
 entry("open");
 entry("mknod");
 entry("unlink");

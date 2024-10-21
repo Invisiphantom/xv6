@@ -15,12 +15,12 @@
 struct file {
     enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type; // 文件类型
     int ref;                                             // 引用计数
-    char readable;                                       // 可读
-    char writable;                                       // 可写
-    struct pipe* pipe;                                   // FD_PIPE
-    struct minode* ip;                                   // FD_INODE and FD_DEVICE
-    uint off;                                            // FD_INODE
-    short major;                                         // FD_DEVICE
+    char readable;                                       // 是否可读
+    char writable;                                       // 是否可写
+    struct pipe* pipe;                                   // 管道信息
+    struct minode* ip;                                   // 内存inode信息
+    uint off;                                            // 文件描述符偏移量
+    short major;                                         // 主设备号
 };
 
 #define major(dev) ((dev) >> 16 & 0xFFFF)     // 获取主设备号 (高16位)

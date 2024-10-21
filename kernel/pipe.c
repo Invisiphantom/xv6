@@ -99,6 +99,7 @@ int pipewrite(struct pipe* pi, uint64 addr, int n)
     return i;
 }
 
+// 从管道pi中读取n个字节到用户空间addr
 int piperead(struct pipe* pi, uint64 addr, int n)
 {
     int i;

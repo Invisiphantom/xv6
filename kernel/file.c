@@ -40,14 +40,19 @@ struct file* filealloc(void)
     return 0;
 }
 
-// Increment ref count for file f.
+// 增加文件f的引用计数
 struct file* filedup(struct file* f)
 {
-    acquire(&ftable.lock);
-    if (f->ref < 1)
+    acquire(&ftable.lock); // 获取锁
+
+    // 确保文件存在引用
+    if (f->ref <= 0)
         panic("filedup");
+    // 增加引用计数
     f->ref++;
-    release(&ftable.lock);
+
+    release(&ftable.lock); // 释放锁
+
     return f;
 }
 
@@ -96,35 +101,45 @@ int filestat(struct file* f, uint64 addr)
     return -1;
 }
 
-// 从文件f读取数据
-// 地址addr是用户虚拟地址
+// 从文件f读取n个字节到用户空间addr
 int fileread(struct file* f, uint64 addr, int n)
 {
     int r = 0;
 
+    // 如果文件不可读
     if (f->readable == 0)
         return -1;
 
+    // 如果是管道文件
     if (f->type == FD_PIPE) {
         r = piperead(f->pipe, addr, n);
-    } else if (f->type == FD_DEVICE) {
+    }
+
+    // 如果是设备文件
+    else if (f->type == FD_DEVICE) {
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
             return -1;
         r = devsw[f->major].read(1, addr, n);
-    } else if (f->type == FD_INODE) {
-        ilock(f->ip);
-        if ((r = readi(f->ip, 1, addr, f->off, n)) > 0)
-            f->off += r;
-        iunlock(f->ip);
-    } else {
-        panic("fileread");
     }
+
+    // 如果是inode文件
+    else if (f->type == FD_INODE) {
+        ilock(f->ip); // 获取锁
+
+        // minode=f->ip, user_dst=1, dst=addr, off=f->off, n=n
+        if ((r = readi(f->ip, 1, addr, f->off, n)) > 0)
+            f->off += r; // 更新文件描述符偏移量
+
+        iunlock(f->ip); // 释放锁
+    }
+
+    else
+        panic("fileread");
 
     return r;
 }
 
-// Write to file f.
-// addr is a user virtual address.
+// 将用户空间addr的n个字节写入文件f
 int filewrite(struct file* f, uint64 addr, int n)
 {
     int r, ret = 0;

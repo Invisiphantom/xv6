@@ -4,6 +4,7 @@
 .globl start
 start:
         # exec(init, argv)
+        # 跳转到 usys.S
         la a0, init
         la a1, argv
         li a7, SYS_exec
