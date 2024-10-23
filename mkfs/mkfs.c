@@ -15,8 +15,8 @@
 #include <fcntl.h>
 #include <assert.h>
 
-// 避免和主机的stat结构体冲突
-#define stat xv6_stat
+// 避免和标准库的stat结构体冲突
+#define stat std_stat
 
 #include "kernel/types.h"
 #include "kernel/fs.h"
@@ -35,7 +35,7 @@
 
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
-// [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
+// [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
 #define NINODES 200                   // 索引结点的最大数量
 int nbitmap = FSSIZE / BPB + 1;       // 需要的位图块数量
 int ninodeblocks = NINODES / IPB + 1; // 需要的索引块数量
@@ -84,7 +84,7 @@ uint xint(uint x)
 
 int main(int argc, char* argv[])
 {
-    int i, cnt, fd;
+    int cnt, fd;
     uint rootino, inum, off;
     struct dirent de;
     char buf[BSIZE];
@@ -133,7 +133,7 @@ int main(int argc, char* argv[])
     freeblock = nmeta;
 
     // 清空fsfd的所有块区
-    for (i = 0; i < FSSIZE; i++)
+    for (int i = 0; i < FSSIZE; i++)
         wsect(i, zeroes);
 
     // 写入超级块
@@ -158,7 +158,7 @@ int main(int argc, char* argv[])
     iappend(rootino, &de, sizeof(de));
 
     // 向根目录装载用户程序
-    for (i = 2; i < argc; i++) {
+    for (int i = 2; i < argc; i++) {
         char* shortname;
 
         // 移除前缀 "user/"

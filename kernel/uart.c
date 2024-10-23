@@ -1,6 +1,8 @@
-//
-// low-level driver routines for 16550a UART.
-// UART (Universal Asynchronous Receiver-Transmitter)
+
+
+// UART-16550a 设备驱动代码
+// 文档: http://byterunner.com/16550.html
+// 通用异步收发器 (Universal Asynchronous Receiver-Transmitter)
 
 #include "types.h"
 #include "param.h"
@@ -10,23 +12,19 @@
 #include "proc.h"
 #include "defs.h"
 
-// UART控制寄存器 是映射到内存UART0位置的
-// 这个宏返回此类寄存器的地址
+// 获取UART控制寄存器 的内存地址
 #define Reg(reg) ((volatile unsigned char*)(UART0 + (reg)))
 
-// the UART control regs.
-// some have different meanings for
-// read vs write.
-// see http://byterunner.com/16550.html
-#define RHR 0 // Receive Holding Reg (输入字节)
-#define THR 0 // Transmit Holding Reg (输出字节)
+// UART控制寄存器
+#define RHR 0 // 接收保持寄存器 (Receive Holding Reg)
+#define THR 0 // 发送保持寄存器 (Transmit Holding Reg)
 
-#define IER 1                  // Interrupt Enable Reg
-#define IER_RX_ENABLE (1 << 0) // RHR 中断使能
-#define IER_TX_ENABLE (1 << 1) // THR 中断使能
+#define IER 1                  // 中断使能寄存器
+#define IER_RX_ENABLE (1 << 0) // 接收中断
+#define IER_TX_ENABLE (1 << 1) // 发送中断
 
-#define FCR 2                    // FIFO Control Reg (FIFO 控制寄存器)
-#define FCR_FIFO_ENABLE (1 << 0) // FIFO 启用使能
+#define FCR 2                    // FIFO 控制寄存器
+#define FCR_FIFO_ENABLE (1 << 0) // 是否启用
 #define FCR_FIFO_CLEAR (3 << 1)  // clear the content of the two FIFOs
 
 #define ISR 2 // Interrupt Status Reg (中断状态寄存器)

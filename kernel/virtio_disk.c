@@ -1,16 +1,18 @@
 
 // 文件系统实现:
+//  + UART: 串口输入输出 (printf.c, console.c, uart.c)
 //  + FS.img: 文件系统映像 (mkfs.c)
 //  + Dev+blockno: 虚拟硬盘块设备 (virtio_disk.c)
-//  + Bcache: 缓存链环 (bio.c)
+//  + Bcache: 缓存链环 (bio.c, buf.h)
 //  + Log: 多步更新的崩溃恢复 (log.c)
 //  + Inode: inode分配器, 读取, 写入, 元数据 (fs.c)
 //  + Directory: 具有特殊内容的inode(其他inode的列表) (fs.c)
 //  + Path: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
+//  + File SysCall: 文件系统调用 (sysfile.c, pipe.c, file.c, file.h)
 
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
-// [          0 |           1 | 2       31 | 32        44 |           45 | 46     1999 ]
+// [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
 
 // 虚拟硬盘驱动 QEMU Memory Mapped I/O (MMIO) Interface of Virtio
 // qemu -drive file=fs.img,if=none,format=raw,id=x0

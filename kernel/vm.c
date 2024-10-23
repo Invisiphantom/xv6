@@ -99,7 +99,7 @@ pte_t* walk(pagetable_t pagetable, uint64 va, int alloc)
         }
     }
 
-    // 返回最后一级页表的物理地址项
+    // 返回最后一级页表项的地址
     return &pagetable[PX(0, va)];
 }
 

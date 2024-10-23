@@ -16,11 +16,11 @@
 // end -- 内核空闲页链表的开始地址
 // PHYSTOP -- 内核程序的最大物理内存地址
 
-// UART寄存器 物理内存地址
+// UART控制寄存器 的内存地址
 #define UART0 0x10000000L
 #define UART0_IRQ 10
 
-// virtio mmio 接口
+// VirtIO控制寄存器 的内存地址
 #define VIRTIO0 0x10001000
 #define VIRTIO0_IRQ 1
 
