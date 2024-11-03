@@ -409,21 +409,19 @@ int copyout(pagetable_t pagetable, uint64 dstva, char* src, uint64 len)
 // 从给定页表中的虚拟地址 srcva 复制 len 字节到 dst
 int copyin(pagetable_t pagetable, char* dst, uint64 srcva, uint64 len)
 {
-    uint64 n, va0, pa0;
-
     while (len > 0) {
-        va0 = PGROUNDDOWN(srcva);       // srcva所在页的首地址
-        pa0 = walkaddr(pagetable, va0); // 获取va0对应的物理地址
+        uint64 va0 = PGROUNDDOWN(srcva);       // srcva所在页的首地址
+        uint64 pa0 = walkaddr(pagetable, va0); // 获取va0对应的物理地址
 
         if (pa0 == 0)
             return -1;
 
-        // 此页最多可拷贝的字节数
-        n = PGSIZE - (srcva - va0);
+        // srcva到页末的字节数
+        uint64 n = PGSIZE - (srcva - va0);
         if (n > len)
             n = len;
 
-        // 拷贝数据
+        // 从物理地址拷贝数据
         memmove(dst, (void*)(pa0 + (srcva - va0)), n);
 
         // 继续下一页

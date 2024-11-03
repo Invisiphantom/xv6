@@ -18,8 +18,7 @@ void initlock(struct spinlock* lk, char* name)
 // 不断循环直到获取自旋锁
 void acquire(struct spinlock* lk)
 {
-    // 关闭中断, 避免死锁
-    push_off();
+    push_off(); //* 禁用中断
 
     // 确保当前CPU未持有该锁
     if (holding(lk))
@@ -58,8 +57,7 @@ void release(struct spinlock* lk)
     // amoswap.w zero, zero, (s1)  <原子交换操作>
     __sync_lock_release(&lk->locked);
 
-    // 重新开启中断
-    pop_off();
+    pop_off(); //* 恢复之前的中断状态
 }
 
 // 检查当前CPU是否持有锁
@@ -83,7 +81,7 @@ void push_off(void)
         mycpu()->intr_enable = old;
 
     // 增加计数
-    mycpu()->off_num += 1;
+    mycpu()->off_num++;
 }
 
 // 减少中断禁用计数
@@ -94,11 +92,11 @@ void pop_off(void)
     // 确保此时中断关闭 且计数大于0
     if (intr_get())
         panic("pop_off - interruptible");
-    if (c->off_num < 1)
+    if (c->off_num <= 0)
         panic("pop_off");
 
     // 减少计数
-    c->off_num -= 1;
+    c->off_num--;
 
     // 如果是最后一次减少计数, 则恢复原有中断状态
     if (c->off_num == 0 && c->intr_enable)

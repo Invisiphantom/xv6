@@ -140,7 +140,8 @@ static void recover_from_log(void)
     write_head(); // 将内存中的日志头写入硬盘
 }
 
-// 在每个文件系统调用的开始部分被调用
+// 启用新的事务日志
+// 在每个文件系统调用的开始部分调用
 void begin_op(void)
 {
     acquire(&log.lock); // 获取日志锁
@@ -162,7 +163,7 @@ void begin_op(void)
     }
 }
 
-// 在每个文件系统调用的结束部分被调用
+// 在每个文件系统调用的结束部分调用
 // 在最后一个操作结束时执行提交
 void end_op(void)
 {

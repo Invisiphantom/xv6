@@ -54,7 +54,7 @@ void procinit(void)
     }
 }
 
-// 被调用时必须关闭中断
+// 调用时必须关闭中断
 // 以防止与其他CPU上的同进程发生竞争
 inline int cpuid()
 {
@@ -63,7 +63,7 @@ inline int cpuid()
 }
 
 // 返回当前CPU的cpu结构体
-// 被调用时必顼关闭中断
+// 调用时必顼关闭中断
 inline struct cpu* mycpu(void)
 {
     int id = cpuid();
@@ -74,10 +74,10 @@ inline struct cpu* mycpu(void)
 // 返回当前CPU执行的进程, 如果没有则返回0
 struct proc* myproc(void)
 {
-    push_off();
+    push_off(); //* 禁用中断
     struct cpu* c = mycpu();
     struct proc* p = c->proc;
-    pop_off();
+    pop_off(); //* 恢复之前的中断状态
     return p;
 }
 
@@ -129,9 +129,11 @@ found:
         return 0;
     }
 
-    memset(&p->context, 0, sizeof(p->context)); // 清空进程上下文
-    p->context.ra = (uint64)forkret;            // 设置swtch返回后跳转到forkret
-    p->context.sp = p->kstack + PGSIZE; // 设置内核栈指针 (从高地址向低地址增长)
+    // 清空进程上下文
+    memset(&p->context, 0, sizeof(p->context));
+
+    p->context.ra = (uint64)forkret;    // 设置swtch返回后跳转到forkret
+    p->context.sp = p->kstack + PGSIZE; // 设置内核栈指针
 
     return p;
 }
@@ -462,14 +464,14 @@ void scheduler(void)
         int found = 0;
         for (p = proc; p < &proc[NPROC]; p++) {
             // 获取进程锁
-            acquire(&p->lock);
+            acquire(&p->lock); // *
 
             // 如果进程是RUNNABLE状态
             if (p->state == RUNNABLE) {
-                // 由进程负责释放锁 并在返回到调度器之前重新获取锁
                 p->state = RUNNING;
                 c->proc = p;
 
+                // 由进程负责释放锁 并在返回到调度器之前重新获取锁
                 // 将当前调度器状态保存到cpu, 并切换到进程p
                 swtch(&c->context, &p->context);
 
@@ -477,7 +479,7 @@ void scheduler(void)
                 c->proc = 0;
                 found = 1;
             }
-            release(&p->lock);
+            release(&p->lock); // *
         }
 
         // 如果没有找到可运行的进程
@@ -496,7 +498,7 @@ void sched(void)
     struct proc* p = myproc();
 
     // 确保持有p->lock
-    if (!holding(&p->lock))
+    if (holding(&p->lock) == 0)
         panic("sched p->lock");
     // 确保不处于中断关闭状态
     if (mycpu()->off_num != 1)
@@ -509,8 +511,7 @@ void sched(void)
         panic("sched interruptible");
 
     intr_enable = mycpu()->intr_enable; // 暂存当前中断状态
-    swtch(
-        &p->context, &mycpu()->context); // 保存当前进程上下文, 并切换到调度器 scheduler()
+    swtch(&p->context, &mycpu()->context); // 保存当前进程上下文, 并切换到调度器上下文
     mycpu()->intr_enable = intr_enable; // 恢复当前中断状态
 }
 
@@ -518,10 +519,10 @@ void sched(void)
 void yield(void)
 {
     struct proc* p = myproc();
-    acquire(&p->lock);
+    acquire(&p->lock); // *
     p->state = RUNNABLE;
     sched();
-    release(&p->lock);
+    release(&p->lock); // *
 }
 
 // 新分配进程调度 swtch 后跳转到此处 (S-mode)
@@ -531,7 +532,7 @@ void forkret(void)
     static int first = 1; // 标记是否为第一个用户进程
 
     // 释放在scheduler()中获取的进程锁
-    release(&myproc()->lock);
+    release(&myproc()->lock); // *
 
     // 如果是第一个用户进程, 则初始化文件系统
     if (first) {
@@ -652,9 +653,10 @@ int either_copyin(void* dst, int user_src, uint64 src, uint64 len)
     struct proc* p = myproc();
 
     // 如果是用户地址, 则调用copyin
-    if (user_src) {
+    if (user_src)
+        // 从页表对应虚拟地址 src 复制 len 字节到 dst
+        // pagetable=p->pagetable, dst=dst, srcva=src, len=len
         return copyin(p->pagetable, dst, src, len);
-    }
 
     // 如果是内核地址, 则直接拷贝
     else {
@@ -668,23 +670,27 @@ int either_copyin(void* dst, int user_src, uint64 src, uint64 len)
 // 为了避免进一步卡住已经卡住的机器, 不使用锁
 void procdump(void)
 {
-    static char* states[] = { [UNUSED] "unused",
+    static char* states[] = {
+
+        [UNUSED] "unused",
         [USED] "used",
         [SLEEPING] "sleep ",
         [RUNNABLE] "runble",
         [RUNNING] "run   ",
-        [ZOMBIE] "zombie" };
-    struct proc* p;
-    char* state;
+        [ZOMBIE] "zombie"
+    };
 
     printf("\n");
-    for (p = proc; p < &proc[NPROC]; p++) {
+    for (struct proc* p = proc; p < &proc[NPROC]; p++) {
         if (p->state == UNUSED)
             continue;
+
+        char* state;
         if (p->state >= 0 && p->state < NELEM(states) && states[p->state])
             state = states[p->state];
         else
             state = "???";
+
         printf("%d %s %s", p->pid, state, p->name);
         printf("\n");
     }

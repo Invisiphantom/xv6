@@ -8,9 +8,9 @@ sub entry {
     my $name = shift;
     print ".global $name\n";
     print "${name}:\n";
-    print " li a7, SYS_${name}\n";
-    print " ecall # (U-mode -> S-mode)\n";
-    print " ret\n\n";
+    print "\tli a7, SYS_${name}\n";
+    print "\tecall # (U-mode -> S-mode)\n";
+    print "\tret\n\n";
 }
 	
 entry("fork");

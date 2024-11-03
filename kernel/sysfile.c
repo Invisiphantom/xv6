@@ -18,7 +18,7 @@
 
 // 获取第n个系统调用参数 (文件描述符)
 // 返回文件描述符和对应的文件结构体
-// n:参数索引  pdf:文件描述符值  pf:文件结构体
+// n:参数索引  pdf:返回文件描述符值  pf:返回文件结构体
 static int argfd(int n, int* pfd, struct file** pf)
 {
     int fd;
@@ -72,6 +72,8 @@ uint64 sys_dup(void)
     return fd;
 }
 
+// 从文件描述符fd中读取n字节到buf
+// 返回读取的字节数, EOF返回0
 // int read(int fd, char *buf, int n)
 uint64 sys_read(void)
 {
@@ -92,15 +94,15 @@ uint64 sys_read(void)
 uint64 sys_write(void)
 {
     struct file* f;
+    uint64 buf;
     int n;
-    uint64 p;
 
-    argaddr(1, &p);
-    argint(2, &n);
     if (argfd(0, 0, &f) < 0)
         return -1;
+    argaddr(1, &buf);
+    argint(2, &n);
 
-    return filewrite(f, p, n);
+    return filewrite(f, buf, n);
 }
 
 // int close(int fd)
@@ -271,6 +273,7 @@ bad:
 }
 
 // 创建inode
+// path:文件路径 type:文件类型 major:主设备号 minor:次设备号
 static struct minode* create(char* path, short type, short major, short minor)
 {
     struct minode *ip, *dp;
@@ -332,43 +335,47 @@ fail:
     return 0;
 }
 
+// 打开文件, 返回文件描述符
 // int open(char *file, int flags)
 uint64 sys_open(void)
 {
     char path[MAXPATH];
-    int fd, omode;
+    int fd, flags;
     struct file* f;
     struct minode* ip;
     int n;
 
-    argint(1, &omode);
+    argint(1, &flags);
     if ((n = argstr(0, path, MAXPATH)) < 0)
         return -1;
 
-    begin_op();
+    begin_op(); //*
 
-    if (omode & O_CREATE) {
+    // 如果有创建标志
+    if (flags & O_CREATE) {
         ip = create(path, T_FILE, 0, 0);
         if (ip == 0) {
-            end_op();
+            end_op(); //*
             return -1;
         }
+
+
     } else {
         if ((ip = namei(path)) == 0) {
-            end_op();
+            end_op(); //*
             return -1;
         }
         ilock(ip);
-        if (ip->type == T_DIR && omode != O_RDONLY) {
+        if (ip->type == T_DIR && flags != O_RDONLY) {
             iunlockput(ip);
-            end_op();
+            end_op(); //*
             return -1;
         }
     }
 
     if (ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)) {
         iunlockput(ip);
-        end_op();
+        end_op(); //*
         return -1;
     }
 
@@ -376,7 +383,7 @@ uint64 sys_open(void)
         if (f)
             fileclose(f);
         iunlockput(ip);
-        end_op();
+        end_op(); //*
         return -1;
     }
 
@@ -388,10 +395,10 @@ uint64 sys_open(void)
         f->off = 0;
     }
     f->ip = ip;
-    f->readable = !(omode & O_WRONLY);
-    f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
+    f->readable = !(flags & O_WRONLY);
+    f->writable = (flags & O_WRONLY) || (flags & O_RDWR);
 
-    if ((omode & O_TRUNC) && ip->type == T_FILE) {
+    if ((flags & O_TRUNC) && ip->type == T_FILE) {
         itrunc(ip);
     }
 

@@ -63,10 +63,17 @@ char* gets(char* buf, int max)
     char c;
 
     for (i = 0; i + 1 < max;) {
-        cc = read(0, &c, 1);
+        // 从stdin读取一个字符
+        cc = read(0, &c, 1); //~ 系统调用
+
+
         if (cc < 1)
             break;
+        
+        // 将字符写入缓冲区
         buf[i++] = c;
+        
+        // 如果读取到换行符, 则结束
         if (c == '\n' || c == '\r')
             break;
     }

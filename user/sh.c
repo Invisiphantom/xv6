@@ -1,10 +1,9 @@
-// Shell.
 
 #include "kernel/types.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
 
-// Parsed command representation
+// 解析后的命令表示
 #define EXEC 1
 #define REDIR 2
 #define PIPE 3
@@ -130,10 +129,16 @@ void runcmd(struct cmd* cmd)
     exit(0);
 }
 
+
 int getcmd(char* buf, int nbuf)
 {
+    // 向stderr写入2位提示符
     write(2, "$ ", 2);
+
+    // 清空缓冲区
     memset(buf, 0, nbuf);
+
+    // 读取一行输入
     gets(buf, nbuf);
     if (buf[0] == 0) // EOF
         return -1;
@@ -145,7 +150,8 @@ int main(void)
     static char buf[100];
     int fd;
 
-    // Ensure that three file descriptors are open.
+    // 确保已打开前三个文件描述符 指向终端
+    // 0:stdin 1:stdout 2:stderr
     while ((fd = open("console", O_RDWR)) >= 0) {
         if (fd >= 3) {
             close(fd);

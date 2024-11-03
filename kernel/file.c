@@ -1,6 +1,5 @@
-//
-// Support functions for system calls that involve file descriptors.
-//
+
+// 文件描述符相关 系统调用的 支持函数
 
 #include "types.h"
 #include "riscv.h"
@@ -102,6 +101,7 @@ int filestat(struct file* f, uint64 addr)
 }
 
 // 从文件f读取n个字节到用户空间addr
+// sysfile.c->sys_read() 调用此函数
 int fileread(struct file* f, uint64 addr, int n)
 {
     int r = 0;
@@ -117,12 +117,14 @@ int fileread(struct file* f, uint64 addr, int n)
 
     // 如果是设备文件
     else if (f->type == FD_DEVICE) {
+        // 确保设备号合法, 并且设备有读函数
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
             return -1;
+        // 跳转到console.c->consoleread()
         r = devsw[f->major].read(1, addr, n);
     }
 
-    // 如果是inode文件
+    // 如果是普通文件
     else if (f->type == FD_INODE) {
         ilock(f->ip); // 获取锁
 
@@ -144,46 +146,67 @@ int filewrite(struct file* f, uint64 addr, int n)
 {
     int r, ret = 0;
 
+    // 确保文件可写
     if (f->writable == 0)
         return -1;
 
+    // 如果是管道文件
     if (f->type == FD_PIPE) {
         ret = pipewrite(f->pipe, addr, n);
-    } else if (f->type == FD_DEVICE) {
+    }
+
+    // 如果是设备文件
+    else if (f->type == FD_DEVICE) {
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].write)
             return -1;
+        // user_src=1, src=addr, n=n
+        // 跳转到console.c->consolewrite()
         ret = devsw[f->major].write(1, addr, n);
-    } else if (f->type == FD_INODE) {
+    }
+
+    // 如果是普通文件
+    else if (f->type == FD_INODE) {
         // write a few blocks at a time to avoid exceeding
         // the maximum log transaction size, including
         // i-node, indirect block, allocation blocks,
         // and 2 blocks of slop for non-aligned writes.
         // this really belongs lower down, since writei()
         // might be writing a device like the console.
+        // 每次只写入几个块, 以避免超过最大日志事务大小
+        // 包括inode, 间接块, 分配块, 以及2个块的空间用于非对齐写入
+
         int max = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * BSIZE;
+
         int i = 0;
         while (i < n) {
             int n1 = n - i;
             if (n1 > max)
                 n1 = max;
 
-            begin_op();
-            ilock(f->ip);
+            begin_op(); //*
+
+            ilock(f->ip); //**
+
             if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
                 f->off += r;
-            iunlock(f->ip);
-            end_op();
+
+            iunlock(f->ip); //**
+
+            end_op(); //*
 
             if (r != n1) {
                 // error from writei
                 break;
             }
+
             i += r;
         }
+
         ret = (i == n ? n : -1);
-    } else {
-        panic("filewrite");
-    }
+    } 
+    
+    else
+        panic("filewrite: unknown file type");
 
     return ret;
 }

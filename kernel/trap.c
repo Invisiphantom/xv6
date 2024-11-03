@@ -57,6 +57,7 @@ void usertrap(void)
 
     // 如果是设备中断 (键盘, 硬盘, 定时器)
     else if ((which_dev = devintr()) != 0) {
+
     }
 
     else {
@@ -169,7 +170,7 @@ int devintr()
         // 从PLIC获取当前中断类型
         int irq = plic_claim();
 
-        // 处理键盘中断 (UART)
+        // 处理终端输入中断 (UART)
         if (irq == UART0_IRQ)
             uartintr();
 

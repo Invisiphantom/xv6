@@ -119,6 +119,7 @@ static uint64 (*syscalls[])(void) = {
 };
 
 // 处理系统调用
+// trap.c->usertrap()中调用
 void syscall(void)
 {
     int num;
