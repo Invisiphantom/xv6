@@ -53,24 +53,15 @@ void fsinit(int dev)
 
 // -------------------------------- Block -------------------------------- //
 
-// 清空硬盘块 (fs.c->balloc)
-static void bzero(uint dev, uint bno)
-{
-    buf* bp = bread(dev, bno);  //* 锁定块
-    memset(bp->data, 0, BSIZE); // 清空数据
-    log_write(bp);              // 写回日志
-    brelse(bp);                 //* 释放块
-}
-
 // 分配硬盘块 返回块号
 static uint balloc(uint dev)
 {
     // 遍历所有的位图分区
-    for (uint bp_part = 0; bp_part < sb.size; bp_part += BPB) {
-        buf* bp = bread(dev, BBLOCK(bp_part, sb)); //* 锁定位图块
+    for (uint part = 0; part < sb.size; part += BPB) {
+        buf* bp = bread(dev, BBLOCK(part, sb)); //* 锁定位图块
 
-        // 遍历该分区的所有块
-        for (uint bi = 0; bi < BPB && bp_part + bi < sb.size; bi++) {
+        // 遍历该分区的所有位
+        for (uint bi = 0; bi < BPB && part + bi < sb.size; bi++) {
             uchar mask = 1 << (bi % 8);
 
             // 如果当前位是空闲的
@@ -79,14 +70,19 @@ static uint balloc(uint dev)
                 log_write(bp);            // 写回日志
                 brelse(bp);               //* 释放位图块
 
-                bzero(dev, bp_part + bi); // 清空分配块
-                return bp_part + bi;      // 返回分配块号
+                // 分配新块并清空数据
+                uint bno = part + bi;
+                bp = bread(dev, bno);       //** 锁定分配块
+                memset(bp->data, 0, BSIZE); // 清空数据
+                log_write(bp);              // 写回日志
+                brelse(bp);                 //** 释放分配块
+                return bno;
             }
         }
-
         brelse(bp); //* 释放位图块
-        panic("balloc: out of blocks");
     }
+
+    panic("balloc: out of blocks");
     return 0;
 }
 
@@ -111,7 +107,7 @@ static void bfree(int dev, uint bno)
 // 内存-索引表
 struct {
     spinlock lock;        // 索引表锁
-    minode inode[NINODE]; // 索引数组
+    minode inode[NINODE]; // 内存-索引项数组
 } itable;
 
 void iinit()
@@ -121,24 +117,31 @@ void iinit()
         initsleeplock(&itable.inode[i].lock, "inode");
 }
 
-static struct minode* iget(uint dev, uint inum);
+// ----------------------------------------------------------------
 
-// 从硬盘分配一个空闲inode并标记类型type
-// 返回此inum在内存中对应的minode表项
-minode* ialloc(uint dev, short type) // stat.h
+static minode* iget(uint dev, uint inum);
+
+// 找到空闲的硬盘-索引项
+// 返回对应的内存-索引项 (暂时不加载数据)
+minode* ialloc(uint dev, short type)
 {
-    for (int inum = 1; inum < sb.ninodes; inum++) {
+    // 遍历所有的硬盘-索引项
+    for (uint inum = ROOTINO; inum < sb.ninodes; inum++) {
         buf* bp = bread(dev, IBLOCK(inum, sb)); //* 锁定索引块
         dinode* dip = (dinode*)bp->data + inum % IPB;
 
-        // 如果此dinode是空闲的
-        if (dip->type == 0) {
-            memset(dip, 0, sizeof(*dip)); // 将dinode清零
-            dip->type = type;             // 标记dinode类型
-            log_write(bp);                // 写回更新后的d索引块 (日志)
+        // 如果找到空闲的硬盘-索引项
+        if (dip->type == T_FREE) {
+            memset(dip, 0, sizeof(*dip)); // 清空数据
+            dip->type = type;             // 文件类型
+            log_write(bp);                // 写回日志
             brelse(bp);                   //* 释放索引块
-            return iget(dev, inum);       // 返回inum对应的minode表项 (内存)
+
+            // 索引项条目: 硬盘=>内存 (暂时不加载数据)
+            minode* mip = iget(dev, inum);
+            return mip;
         }
+
         brelse(bp); //* 释放索引块
     }
 
@@ -146,192 +149,173 @@ minode* ialloc(uint dev, short type) // stat.h
     return 0;
 }
 
-// 将修改后的内存minode 更新到 硬盘dinode (需持有ip->lock)
-void iupdate(struct minode* ip)
+// 索引项条目: 硬盘=>内存 (暂时不加载数据)
+static minode* iget(uint dev, uint inum)
 {
-    struct buf* bp;
-    struct dinode* dip;
+    minode *mip, *empty = NULL;
+    acquire(&itable.lock); //* 获取索引表锁
 
-    // 读取inum所在的硬盘块, 并计算块中偏移地址
-    bp = bread(ip->dev, IBLOCK(ip->inum, sb));
-    dip = (struct dinode*)bp->data + ip->inum % IPB;
-
-    // 更新硬盘中的inode信息
-    dip->type = ip->type;
-    dip->major = ip->major;
-    dip->minor = ip->minor;
-    dip->nlink = ip->nlink;
-    dip->size = ip->size;
-    memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
-
-    log_write(bp); // 写回更新后的硬盘块 (日志)
-    brelse(bp);    // 释放硬盘块缓存
-}
-
-// 在minode表中查找inum对应的minode
-// - 如果在minode表中找到, 则返回该minode
-// - 如果没有找到, 则从minode表分配一个新的空minode
-// (不会锁定 inode, 也不从硬盘读取它)
-static struct minode* iget(uint dev, uint inum)
-{
-    struct minode *ip, *empty = 0;
-
-    acquire(&itable.lock); // 获取itable锁
-
-    // 遍历minode表
-    for (ip = &itable.inode[0]; ip < &itable.inode[NINODE]; ip++) {
-        // 如果找到了对应的minode
-        if (ip->ref > 0 && ip->dev == dev && ip->inum == inum) {
-            ip->ref++;             // 增加引用计数
-            release(&itable.lock); // 释放itable锁
-            return ip;             // 返回minode
+    // 遍历内存-索引表 寻找对应索引项
+    for (mip = &itable.inode[0]; mip < &itable.inode[NINODE]; mip++) {
+        if (mip->ref > 0 && mip->dev == dev && mip->inum == inum) {
+            mip->ref++;            // 增加引用计数
+            release(&itable.lock); //* 释放索引表锁
+            return mip;
         }
-        // 如果有空闲的minode, 则记录到empty
-        if (empty == 0 && ip->ref == 0) // Remember empty slot.
-            empty = ip;
+
+        // 记录空闲索引项
+        if (empty == NULL && mip->ref == 0)
+            empty = mip;
     }
 
-    // 既没有找到对应minode, 也没有空闲minode
-    if (empty == 0)
+    if (empty == NULL)
         panic("iget: no inodes");
 
-    // 如果没有找到对应minode
-    // 就初始化一个空闲minode
-    ip = empty;
-    ip->dev = dev;   // 设备号
-    ip->inum = inum; // inode编号
-    ip->ref = 1;     // 引用计数置1
-    ip->valid = 0;   // 目前此项无效
-    release(&itable.lock);
+    mip = empty;        // 空闲索引项
+    mip->dev = dev;     // 设备号
+    mip->inum = inum;   // 索引编号
+    mip->ref = 1;       // 引用计数
+    mip->valid = false; // 有效位
 
-    return ip;
+    release(&itable.lock); //* 释放索引表锁
+    return mip;
 }
 
-// 增加ip的引用计数, 返回ip  <ip = idup(ip1)>
-struct minode* idup(struct minode* ip)
-{
-    acquire(&itable.lock);
-    ip->ref++;
-    release(&itable.lock);
-    return ip;
-}
+// ----------------------------------------------------------------
 
-// 获取inode锁 (如果需要, 则从硬盘读取inode)
-void ilock(struct minode* ip)
+// 锁定内存-索引项
+void ilock(minode* mip)
 {
-    struct buf* bp;
-    struct dinode* dip;
-
-    // 确保minode非空闲
-    if (ip == 0 || ip->ref <= 0)
+    if (mip == NULL || mip->ref <= 0)
         panic("ilock");
 
-    acquiresleep(&ip->lock); // 获取inode锁
+    acquiresleep(&mip->lock); //** 获取inode锁 (休眠)
 
-    // 如果minode无效
-    if (ip->valid == 0) {
-        // 读取inum所在的硬盘块, 并计算块中偏移地址
-        bp = bread(ip->dev, IBLOCK(ip->inum, sb));
-        dip = (struct dinode*)bp->data + ip->inum % IPB;
+    // 如果索引无效, 则从硬盘加载
+    if (mip->valid == false) {
+        buf* bp = bread(mip->dev, IBLOCK(mip->inum, sb)); //* 锁定索引块
+        dinode* dip = (struct dinode*)bp->data + mip->inum % IPB;
 
-        // 拷贝硬盘dinode到内存minode
-        ip->type = dip->type;
-        ip->major = dip->major;
-        ip->minor = dip->minor;
-        ip->nlink = dip->nlink;
-        ip->size = dip->size;
-        memmove(ip->addrs, dip->addrs, sizeof(ip->addrs));
+        // 索引项数据: 硬盘=>内存
+        mip->type = dip->type;
+        mip->major = dip->major;
+        mip->minor = dip->minor;
+        mip->nlink = dip->nlink;
+        mip->size = dip->size;
+        memmove(mip->addrs, dip->addrs, sizeof(mip->addrs));
 
-        brelse(bp);
-        ip->valid = 1;
+        brelse(bp); //* 释放索引块
 
-        if (ip->type == 0)
+        mip->valid = true;
+        if (mip->type == T_FREE)
             panic("ilock: no type");
     }
 }
 
-// 释放inode锁
-void iunlock(struct minode* ip)
+// 更新索引项写回硬盘 (需持有inode锁)
+void iupdate(minode* mip)
 {
-    // 确保minode非空闲 且持有锁
-    if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
-        panic("iunlock");
+    buf* bp = bread(mip->dev, IBLOCK(mip->inum, sb)); //* 锁定索引块
+    dinode* dip = (dinode*)bp->data + mip->inum % IPB;
 
-    releasesleep(&ip->lock);
+    // 索引项数据: 内存=>硬盘
+    dip->type = mip->type;
+    dip->major = mip->major;
+    dip->minor = mip->minor;
+    dip->nlink = mip->nlink;
+    dip->size = mip->size;
+    memmove(dip->addrs, mip->addrs, sizeof(mip->addrs));
+
+    log_write(bp); // 写回日志
+    brelse(bp);    //* 释放索引块
 }
 
-// 减少对内存中minode的引用计数。
-// 如果这是最后一个引用, 那么可以释放minode表项
-// 如果这是最后一个引用, 且没有硬链接, 那么可以释放硬盘上的dinode 及其文件内容
-// 所有对 iput() 的调用必须在一个事务中进行，以防需要释放 inode
-void iput(struct minode* ip)
+// 释放内存-索引项
+void iunlock(minode* mip)
 {
-    acquire(&itable.lock); // 获取itable锁
+    // 确保当前进程持有inode锁
+    if (mip == NULL || holdingsleep(&mip->lock) == false || mip->ref <= 0)
+        panic("iunlock");
+    releasesleep(&mip->lock); //** 释放inode锁 (唤醒)
+}
+
+// ----------------------------------------------------------------
+
+// 增加内存-索引项的引用计数
+minode* idup(minode* mip)
+{
+    acquire(&itable.lock); //* 获取索引表锁
+    mip->ref++;
+    release(&itable.lock); //* 释放索引表锁
+    return mip;
+}
+
+// 减少内存-索引项的引用计数
+void iput(minode* mip)
+{
+    acquire(&itable.lock); //* 获取索引表锁
 
     // 如果是最后一个引用, 并且没有硬链接
-    if (ip->ref == 1 && ip->valid && ip->nlink == 0) {
-        // ip->ref == 1 意味着没有其他进程可以锁定ip
+    if (mip->ref == 1 && mip->valid && mip->nlink == 0) {
+        // mip->ref == 1 意味着没有其他进程可以锁定ip
         // 因此这个acquiresleep()不会被阻塞(或死锁)
-        acquiresleep(&ip->lock); // 获取inode锁
+        acquiresleep(&mip->lock); //** 获取inode锁 (休眠)
+        release(&itable.lock);    //* 释放索引表锁
 
-        release(&itable.lock); // 释放itable锁
+        itrunc(mip);        // 释放minode的所有硬盘数据块
+        mip->type = 0;      // 将minode标记为空闲
+        iupdate(mip);       // 将更新后的minode写回硬盘
+        mip->valid = false; // 标记内存minode失效
 
-        itrunc(ip);    // 释放minode的所有硬盘数据块
-        ip->type = 0;  // 将minode标记为空闲
-        iupdate(ip);   // 将更新后的minode写回硬盘
-        ip->valid = 0; // 标记内存minode失效
-
-        releasesleep(&ip->lock); // 释放inode锁
-
-        acquire(&itable.lock); // 重新获取itable锁
+        releasesleep(&mip->lock); //** 释放inode锁 (唤醒)
+        acquire(&itable.lock);    //* 获取索引表锁
     }
 
-    ip->ref--;             // 减少引用计数
-    release(&itable.lock); // 释放itable锁
+    mip->ref--;            // 减少引用计数
+    release(&itable.lock); //* 释放索引表锁
 }
 
 // 释放minode锁 并释放minode表项及数据块
-void iunlockput(struct minode* ip)
+void iunlockput(minode* mip)
 {
-    iunlock(ip);
-    iput(ip);
+    iunlock(mip);
+    iput(mip);
 }
 
 // -------------------------------- Inode Content -------------------------------- //
 
-// 返回 inode 第 bn 个块的硬盘地址
+// 返回 inode 第 addri 个块的硬盘地址
 // 如果没有这样的块，则分配一个新块
-static uint bmap(struct minode* ip, uint bn)
+static uint bmap(minode* mip, uint addri)
 {
-    uint addr, *a;
-    struct buf* bp;
+    uint addr;
 
     // 寻找直接块
-    if (bn < NDIRECT) {
-        if ((addr = ip->addrs[bn]) == 0) {
-            addr = balloc(ip->dev); // 分配新直接块
+    if (addri < NDIRECT) {
+        if ((addr = mip->addrs[addri]) == 0) {
+            addr = balloc(mip->dev); // 分配新直接块
             if (addr == 0)
                 return 0;
-            ip->addrs[bn] = addr;
+            mip->addrs[addri] = addr;
         }
         return addr;
     }
 
     // 寻找间接块
-    bn -= NDIRECT;
-    if (bn < NINDIRECT) {
-        if ((addr = ip->addrs[NDIRECT]) == 0) {
-            addr = balloc(ip->dev); // 分配新间接引导块
+    addri -= NDIRECT;
+    if (addri < NINDIRECT) {
+        if ((addr = mip->addrs[NDIRECT]) == 0) {
+            addr = balloc(mip->dev); // 分配新间接引导块
             if (addr == 0)
                 return 0;
-            ip->addrs[NDIRECT] = addr;
+            mip->addrs[NDIRECT] = addr;
         }
-        bp = bread(ip->dev, addr); // 读取间接引导块
-        a = (uint*)bp->data;
-        if ((addr = a[bn]) == 0) {
-            addr = balloc(ip->dev); // 分配新间接块
+        buf* bp = bread(mip->dev, addr); // 读取间接引导块
+        uint* a = (uint*)bp->data;
+        if ((addr = a[addri]) == 0) {
+            addr = balloc(mip->dev); // 分配新间接块
             if (addr) {
-                a[bn] = addr;
+                a[addri] = addr;
                 log_write(bp); // 更新写回间接引导块
             }
         }
@@ -344,44 +328,42 @@ static uint bmap(struct minode* ip, uint bn)
 
 // 释放 minode 的所有硬盘数据块
 // 调用者必须持有ip->lock
-void itrunc(struct minode* ip)
+void itrunc(minode* mip)
 {
-    struct buf* bp;
-
     // 释放所有直接块
     for (int i = 0; i < NDIRECT; i++) {
-        if (ip->addrs[i]) {
-            bfree(ip->dev, ip->addrs[i]);
-            ip->addrs[i] = 0;
+        if (mip->addrs[i]) {
+            bfree(mip->dev, mip->addrs[i]);
+            mip->addrs[i] = 0;
         }
     }
 
     // 释放所有间接块
-    if (ip->addrs[NDIRECT]) {
-        bp = bread(ip->dev, ip->addrs[NDIRECT]);
+    if (mip->addrs[NDIRECT]) {
+        buf* bp = bread(mip->dev, mip->addrs[NDIRECT]);
         uint* a = (uint*)bp->data;
         // 遍历所有间接块 并释放
         for (int j = 0; j < NINDIRECT; j++)
             if (a[j])
-                bfree(ip->dev, a[j]);
+                bfree(mip->dev, a[j]);
         brelse(bp);
-        bfree(ip->dev, ip->addrs[NDIRECT]);
-        ip->addrs[NDIRECT] = 0;
+        bfree(mip->dev, mip->addrs[NDIRECT]);
+        mip->addrs[NDIRECT] = 0;
     }
 
-    ip->size = 0; // 更新inode大小
-    iupdate(ip);  // 将更新后的minode写回硬盘
+    mip->size = 0; // 更新inode大小
+    iupdate(mip);  // 将更新后的minode写回硬盘
 }
 
 // 从inode复制stat信息至st
 // 调用者必须持有ip->lock
-void stati(struct minode* ip, struct stat* st)
+void stati(minode* mip, struct stat* st)
 {
-    st->dev = ip->dev;
-    st->ino = ip->inum;
-    st->type = ip->type;
-    st->nlink = ip->nlink;
-    st->size = ip->size;
+    st->dev = mip->dev;
+    st->ino = mip->inum;
+    st->type = mip->type;
+    st->nlink = mip->nlink;
+    st->size = mip->size;
 }
 
 // 读取文件的n个字节到dst
@@ -389,33 +371,32 @@ void stati(struct minode* ip, struct stat* st)
 // (调用者必须持有ip->lock)
 // user_dst=1 : dst是用户地址
 // user_dst=0 : dst是内核地址
-int readi(struct minode* ip, int user_dst, uint64 dst, uint off, uint n)
+int readi(minode* mip, int user_dst, uint64 dst, uint off, uint n)
 {
-    uint total, m;
-    struct buf* bp;
+    uint total, max_len;
 
     // 确保偏移量在文件范围内
-    if (off >= ip->size || n <= 0)
+    if (off >= mip->size || n <= 0)
         return 0;
 
     // 如果总长度超过文件总大小, 则截断
-    if (off + n > ip->size)
-        n = ip->size - off;
+    if (off + n > mip->size)
+        n = mip->size - off;
 
-    for (total = 0; total < n; total += m, off += m, dst += m) {
+    for (total = 0; total < n; total += max_len, off += max_len, dst += max_len) {
         // 返回 off 所处硬盘块的地址 (保证偏移量在范围内, 不会扩展文件)
-        uint addr = bmap(ip, off / BSIZE);
+        uint addr = bmap(mip, off / BSIZE);
         if (addr == 0)
             break;
 
         // 读取 off 所处硬盘块
-        bp = bread(ip->dev, addr);
+        buf* bp = bread(mip->dev, addr);
 
         // 计算可以读取的字节数
-        m = min(n - total, BSIZE - off % BSIZE);
+        max_len = min(n - total, BSIZE - off % BSIZE);
 
-        // 将硬盘块数据拷贝到dst[m]
-        if (either_copyout(user_dst, dst, bp->data + (off % BSIZE), m) == -1) {
+        // 将硬盘块数据拷贝到dst[max_len]
+        if (either_copyout(user_dst, dst, bp->data + (off % BSIZE), max_len) == -1) {
             brelse(bp);
             total = -1;
             break;
@@ -431,33 +412,32 @@ int readi(struct minode* ip, int user_dst, uint64 dst, uint off, uint n)
 // user_dst=0 : dst是内核地址
 // 将src[n]数据写入inode[off, off+n], 返回成功写入的字节数
 // 如果写入超过文件大小, 则自动扩展并更新文件大小
-int writei(struct minode* ip, int user_src, uint64 src, uint off, uint n)
+int writei(minode* mip, int user_src, uint64 src, uint off, uint n)
 {
-    uint total, m;
-    struct buf* bp;
+    uint total, max_len;
 
     // 确保偏移量在文件范围内 并且不会溢出
-    if (off > ip->size || off + n < off)
+    if (off > mip->size || off + n < off)
         return -1;
 
     // 确保写入总长度不超过 允许的文件最大长度
     if (off + n > MAXFILE * BSIZE)
         return -1;
 
-    for (total = 0; total < n; total += m, off += m, src += m) {
+    for (total = 0; total < n; total += max_len, off += max_len, src += max_len) {
         // 返回 off 所处硬盘块的地址 (超出部分 自动扩展文件)
-        uint addr = bmap(ip, off / BSIZE);
+        uint addr = bmap(mip, off / BSIZE);
         if (addr == 0)
             break;
 
         // 读取 off 所处硬盘块
-        bp = bread(ip->dev, addr);
+        buf* bp = bread(mip->dev, addr);
 
         // 计算可以写入的字节数
-        m = min(n - total, BSIZE - off % BSIZE);
+        max_len = min(n - total, BSIZE - off % BSIZE);
 
-        // 将dst[m]数据写入到硬盘块
-        if (either_copyin(bp->data + (off % BSIZE), user_src, src, m) == -1) {
+        // 将dst[max_len]数据写入到硬盘块
+        if (either_copyin(bp->data + (off % BSIZE), user_src, src, max_len) == -1) {
             brelse(bp);
             break;
         }
@@ -467,12 +447,12 @@ int writei(struct minode* ip, int user_src, uint64 src, uint off, uint n)
     }
 
     // 如果写入超过文件大小, 则更新
-    if (off > ip->size)
-        ip->size = off;
+    if (off > mip->size)
+        mip->size = off;
 
-    // ip->size可能更新, bmap可能更新了ip->addrs[]
+    // mip->size可能更新, bmap可能更新了ip->addrs[]
     // 将修改后的内存minode 更新到 硬盘dinode
-    iupdate(ip);
+    iupdate(mip);
 
     return total;
 }
@@ -484,7 +464,7 @@ int namecmp(const char* s, const char* t) { return strncmp(s, t, DIRSIZ); }
 
 // 在指定目录dp中查找给定名称name的目录项
 // 如果找到该目录项，则将其字节偏移量存储在 *poff 中，并返回 minode
-struct minode* dirlookup(struct minode* dp, char* name, uint* poff)
+minode* dirlookup(minode* dp, char* name, uint* poff)
 {
     uint inum;
     struct dirent de;
@@ -516,15 +496,15 @@ struct minode* dirlookup(struct minode* dp, char* name, uint* poff)
 }
 
 // 在指定的目录 dp 中写入新的目录项{inum,name}
-int dirlink(struct minode* dp, char* name, uint inum)
+int dirlink(minode* dp, char* name, uint inum)
 {
     int off;
     struct dirent de;
-    struct minode* ip;
+    minode* mip;
 
     // 确保文件name在目录dp中
-    if ((ip = dirlookup(dp, name, 0)) != 0) {
-        iput(ip);
+    if ((mip = dirlookup(dp, name, 0)) != NULL) {
+        iput(mip);
         return -1;
     }
 
@@ -557,9 +537,6 @@ int dirlink(struct minode* dp, char* name, uint inum)
 // - skipelem("", name) = skipelem("////", name) = 0
 static char* skipelem(char* path, char* name)
 {
-    char* s;
-    int len;
-
     // 跳过前缀的'/'
     while (*path == '/')
         path++;
@@ -569,14 +546,14 @@ static char* skipelem(char* path, char* name)
         return 0;
 
     // 记录路径的起始位置
-    s = path;
+    char* s = path;
 
     // 提取第一个元素
     while (*path != '/' && *path != 0)
         path++;
 
     // 记录第一个元素的长度
-    len = path - s;
+    int len = path - s;
 
     // 如果其名称长度大于DIRSIZ, 则截断
     if (len >= DIRSIZ)
@@ -599,55 +576,55 @@ static char* skipelem(char* path, char* name)
 // nameiparent=1 : 返回其父目录inode
 // 并将最后的路径元素复制到name中, name必须有DIRSIZ字节的空间
 // 必须在transaction中调用, 因为它调用了iput()
-static struct minode* namex(char* path, int nameiparent, char* name)
+static minode* namex(char* path, int nameiparent, char* name)
 {
-    struct minode *ip, *next;
+    minode *mip, *next;
 
     if (*path == '/')
-        ip = iget(ROOTDEV, ROOTINO); // 直接返回根目录inode
+        mip = iget(ROOTDEV, ROOTINO); // 直接返回根目录inode
     else
-        ip = idup(myproc()->cwd); // 增加对当前工作目录的引用
+        mip = idup(myproc()->cwd); // 增加对当前工作目录的引用
 
     // 逐级查找目录
     while ((path = skipelem(path, name)) != 0) {
         // 锁定当前目录inode
-        ilock(ip);
+        ilock(mip);
         // 确保cwd是一个目录类型
-        if (ip->type != T_DIR) {
-            iunlockput(ip);
+        if (mip->type != T_DIR) {
+            iunlockput(mip);
             return 0;
         }
         // 提前一次循环, 返回父目录inode
         if (nameiparent && *path == '\0') {
-            iunlock(ip);
-            return ip;
+            iunlock(mip);
+            return mip;
         }
         // 在当前目录ip中查找name对应项 并记为next
-        if ((next = dirlookup(ip, name, 0)) == 0) {
-            iunlockput(ip);
+        if ((next = dirlookup(mip, name, 0)) == 0) {
+            iunlockput(mip);
             return 0;
         }
         // 释放当前目录inode, 继续处理next
-        iunlockput(ip);
-        ip = next;
+        iunlockput(mip);
+        mip = next;
     }
 
     // 确保需要返回父目录时, 不会到达这里
     if (nameiparent) {
-        iput(ip);
+        iput(mip);
         return 0;
     }
 
     // 返回path对应的inode
-    return ip;
+    return mip;
 }
 
 // 获取path对应的inode (封装namex)
-struct minode* namei(char* path)
+minode* namei(char* path)
 {
     char name[DIRSIZ];
     return namex(path, 0, name);
 }
 
 // 获取path对应的inode的父目录inode (封装namex)
-struct minode* nameiparent(char* path, char* name) { return namex(path, 1, name); }
+minode* nameiparent(char* path, char* name) { return namex(path, 1, name); }

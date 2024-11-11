@@ -17,6 +17,8 @@
         "stdarg.h": "c",
         "cmath": "c",
         "*.tcc": "c",
-        "riscv.h": "c"
+        "riscv.h": "c",
+        "fcntl.h": "c",
+        "cstdlib": "c"
     }
 }

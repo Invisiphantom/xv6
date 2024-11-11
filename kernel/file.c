@@ -1,6 +1,3 @@
-
-// 文件描述符相关 系统调用的 支持函数
-
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
@@ -203,8 +200,8 @@ int filewrite(struct file* f, uint64 addr, int n)
         }
 
         ret = (i == n ? n : -1);
-    } 
-    
+    }
+
     else
         panic("filewrite: unknown file type");
 

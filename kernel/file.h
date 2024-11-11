@@ -32,20 +32,20 @@ struct file {
 
 // 内存-索引项
 typedef struct minode {
+    sleeplock lock; // 同步睡眠锁
+
     uint dev;  // 设备号(主+次)
     uint inum; // 索引编号
     int ref;   // 引用计数
+    int valid; // 有效位
 
-    sleeplock lock; // 同步睡眠锁
-    int valid;      // inode是否已从硬盘读取
-
-    // inode (硬盘中的类型) (fs.h)
-    short type;              // 文件类型 (0:空闲 1:目录 2:文件 3:设备)
+    // 硬盘-索引项
+    short type;              // 文件类型 (stat.h)
     short major;             // 主设备号
     short minor;             // 次设备号
     short nlink;             // 硬链接数
-    uint size;               // 文件总大小 (字节)
-    uint addrs[NDIRECT + 1]; // 文件所占有的块号 (直接块+间接引导块)
+    uint size;               // 文件大小 (字节)
+    uint addrs[NDIRECT + 1]; // 文件块号 (直接块+间接引导块)
 } minode;
 
 // 将主设备号映射到设备的读写函数

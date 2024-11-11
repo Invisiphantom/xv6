@@ -1,12 +1,13 @@
 
 // 文件系统实现:
-//  + FS.img: 文件系统镜像 (mkfs.c)
-//  + Dev+blockno: 原始硬盘块 (virtio_disk.c)
-//  + Bcache: 缓存链环 (bio.c)
-//  + Log: 多步更新的崩溃恢复 (log.c)
-//  + Inodes: inode分配器, 读取, 写入, 元数据 (fs.c)
-//  + Directories: 具有特殊内容的inode(其他inode的列表) (fs.c)
-//  + PathNames: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
+//  + UART: 串口输入输出 (printf.c console.c uart.c)
+//  -------------------------------------------------
+//  + FS.img: 文件系统映像 (mkfs.c)
+//  + VirtIO: 虚拟硬盘驱动 (virtio.h virtio_disk.c)
+//  + BCache: LRU缓存链环 (buf.h bio.c)
+//  + Log: 两步提交的日志系统 (log.c)
+//  + Inode Dir Path: 硬盘文件系统实现 (stat.h fs.h fs.c)
+//  + File SysCall: 文件系统调用 (file.h file.c pipe.c sysfile.c)
 
 #include <stdio.h>
 #include <unistd.h>

@@ -13,12 +13,8 @@
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
 // [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
 
-// 硬盘文件系统格式
-// 内核和用户程序都使用此头文件
 
-#define ROOTINO 1  // 根目录的索引编号
 #define BSIZE 1024 // 块大小
-
 #define FSMAGIC 0x10203040
 typedef struct superblock {
     uint magic;   // 魔数=FSMAGIC
@@ -32,9 +28,12 @@ typedef struct superblock {
     uint bmapstart;  // 第一个位图块的块号 (45)
 } superblock;
 
-#define NDIRECT 12                       // 直接块数量
-#define NINDIRECT (BSIZE / sizeof(uint)) // 间接块数量
-#define MAXFILE (NDIRECT + NINDIRECT)    // 最大文件大小 (块数)
+// ----------------------------------------------------------------
+
+#define ROOTINO 1                        // 根目录的索引编号 (1)
+#define NDIRECT 12                       // 直接块数量 (12)
+#define NINDIRECT (BSIZE / sizeof(uint)) // 间接块数量 (256)
+#define MAXFILE (NDIRECT + NINDIRECT)    // 最大总块数 (268)
 
 // 硬盘-索引项
 typedef struct dinode {
@@ -42,27 +41,24 @@ typedef struct dinode {
     short major;             // 主设备号
     short minor;             // 次设备号
     short nlink;             // 硬链接数
-    uint size;               // 文件总大小 (字节)
-    uint addrs[NDIRECT + 1]; // 文件所占有的块号 (直接块+间接引导块)
+    uint size;               // 文件大小 (字节)
+    uint addrs[NDIRECT + 1]; // 文件块号 (直接块+间接引导块)
 } dinode;
 
-// 每个索引块 最多能包含的inode数量
-#define IPB (BSIZE / sizeof(struct dinode))
+// ----------------------------------------------------------------
 
-// 根据超级块 计算第i个inode所在的块
-#define IBLOCK(i, sb) ((i) / IPB + sb.inodestart)
+#define BPB (BSIZE * 8)                          // 每块的最大位图数量
+#define BBLOCK(b, sb) ((b) / BPB + sb.bmapstart) // 计算所在的位图块
 
-// 每个位图块 最多能够指示的块数
-#define BPB (BSIZE * 8)
+#define IPB (BSIZE / sizeof(struct dinode))       // 每块的最大索引数量
+#define IBLOCK(i, sb) ((i) / IPB + sb.inodestart) // 计算所在的索引块
 
-// 计算所在的位图块
-#define BBLOCK(b, sb) ((b) / BPB + sb.bmapstart)
+// ----------------------------------------------------------------
 
-// 最大的文件名长度
-#define DIRSIZ 14
+#define DIRSIZ 14 // 文件名最大长度
 
-// 需要给目录内追加的文件项
+// 用于给目录追加文件
 struct dirent {
-    ushort inum;       // inode编号
+    ushort inum;       // 索引编号
     char name[DIRSIZ]; // 文件名称
 };
