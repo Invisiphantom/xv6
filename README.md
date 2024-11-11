@@ -163,15 +163,14 @@ mv compile_commands.json .vscode/
 
 ```cpp
 // 文件系统实现:
-//  + UART: 串口输入输出 (printf.c, console.c, uart.c)
+//  + UART: 串口输入输出 (printf.c console.c uart.c)
+//  -------------------------------------------------
 //  + FS.img: 文件系统映像 (mkfs.c)
-//  + Dev+blockno: 虚拟硬盘块设备 (virtio_disk.c)
-//  + Bcache: 缓存链环 (bio.c, buf.h)
-//  + Log: 多步更新的崩溃恢复 (log.c)
-//  + Inode: inode分配器, 读取, 写入, 元数据 (fs.c)
-//  + Directory: 具有特殊内容的inode(其他inode的列表) (fs.c)
-//  + Path: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
-//  + File SysCall: 文件系统调用 (sysfile.c, pipe.c, file.c, file.h)
+//  + VirtIO: 虚拟硬盘驱动 (virtio.h virtio_disk.c)
+//  + BCache: LRU缓存链环 (buf.h bio.c)
+//  + Log: 两步提交的日志系统 (log.c)
+//  + Inode Dir Path: 硬盘文件系统实现 (stat.h fs.h fs.c)
+//  + File SysCall: 文件系统调用 (file.h file.c pipe.c sysfile.c)
 
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]

@@ -1,11 +1,8 @@
 
-// Long-term locks for processes
-struct sleeplock {
-  uint locked;       // Is the lock held?
-  struct spinlock lk; // spinlock protecting this sleep lock
-  
-  // For debugging:
-  char *name;        // Name of lock.
-  int pid;           // Process holding lock
-};
-
+// 睡眠锁
+typedef struct sleeplock {
+    char* name;  // 锁名称
+    uint locked; // 是否持有
+    int pid;     // 持有锁的进程
+    spinlock lk; // 用自旋锁保护变量
+} sleeplock;

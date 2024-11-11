@@ -11,9 +11,9 @@ struct superblock;
 
 // bio.c
 void            binit(void);
-struct buf*     bread(uint, uint);
-void            brelse(struct buf*);
-void            bwrite(struct buf*);
+struct buf*     bread(uint dev, uint blockno);
+void            brelse(struct buf* b);
+void            bwrite(struct buf* b);
 void            bpin(struct buf*);
 void            bunpin(struct buf*);
 
@@ -126,7 +126,7 @@ void            initsleeplock(struct sleeplock*, char*);
 
 // string.c
 int             memcmp(const void*, const void*, uint);
-void*           memmove(void*, const void*, uint);
+void*           memmove(void* dst, const void* src, uint n);
 void*           memset(void*, int, uint);
 char*           safestrcpy(char*, const char*, int);
 int             strlen(const char*);
@@ -153,7 +153,6 @@ void            uartinit(void);
 void            uartintr(void);
 void            uartputc(int);
 void            uartputc_sync(int);
-int             uartgetc(void);
 
 // vm.c
 void            kvminit(void);

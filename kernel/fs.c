@@ -1,21 +1,17 @@
 
 // 文件系统实现:
-//  + UART: 串口输入输出 (printf.c, console.c, uart.c)
+//  + UART: 串口输入输出 (printf.c console.c uart.c)
+//  -------------------------------------------------
 //  + FS.img: 文件系统映像 (mkfs.c)
-//  + Dev+blockno: 虚拟硬盘块设备 (virtio_disk.c)
-//  + Bcache: 缓存链环 (bio.c, buf.h)
-//  + Log: 多步更新的崩溃恢复 (log.c)
-//  + Inode: inode分配器, 读取, 写入, 元数据 (fs.c)
-//  + Directory: 具有特殊内容的inode(其他inode的列表) (fs.c)
-//  + Path: 方便命名的路径, 如 /usr/rtm/xv6/fs.c (fs.c)
-//  + File SysCall: 文件系统调用 (sysfile.c, pipe.c, file.c, file.h)
+//  + VirtIO: 虚拟硬盘驱动 (virtio.h virtio_disk.c)
+//  + BCache: LRU缓存链环 (buf.h bio.c)
+//  + Log: 两步提交的日志系统 (log.c)
+//  + Inode Dir Path: 硬盘文件系统实现 (stat.h fs.h fs.c)
+//  + File SysCall: 文件系统调用 (file.h file.c pipe.c sysfile.c)
 
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
 // [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
-
-// 此文件包含低层次的文件系统操作
-// 高层次的系统调用实现在sysfile.c
 
 #include "types.h"
 #include "riscv.h"
@@ -31,20 +27,20 @@
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-// 读取超级块 -> sb
-struct superblock sb;
-static void readsb(int dev, struct superblock* sb)
-{
-    struct buf* bp;
+superblock sb;
 
-    bp = bread(dev, 1);                 // 超级块编号为1
+// 超级块: 硬盘=>内存
+static void readsb(int dev, superblock* sb)
+{
+    buf* bp = bread(dev, 1);            //* 锁定超级块
     memmove(sb, bp->data, sizeof(*sb)); // 拷贝数据
-    brelse(bp);                         // 释放缓存链块
+    brelse(bp);                         //* 释放超级块
 }
 
-// 初始化文件系统
+// 初始化文件系统 (proc.c->forkret)
 void fsinit(int dev)
 {
+    // 加载内存-超级块
     readsb(dev, &sb);
 
     // 校验文件系统魔数
@@ -57,79 +53,70 @@ void fsinit(int dev)
 
 // -------------------------------- Block -------------------------------- //
 
-// 清空块bno (在balloc中使用)
-static void bzero(int dev, int bno)
+// 清空硬盘块 (fs.c->balloc)
+static void bzero(uint dev, uint bno)
 {
-    struct buf* bp;
-
-    bp = bread(dev, bno);       // 读取内容到缓存链块
-    memset(bp->data, 0, BSIZE); // 清空缓存链块数据
-    log_write(bp);              // 写回缓存链块 (日志)
-    brelse(bp);                 // 释放缓存链块
+    buf* bp = bread(dev, bno);  //* 锁定块
+    memset(bp->data, 0, BSIZE); // 清空数据
+    log_write(bp);              // 写回日志
+    brelse(bp);                 //* 释放块
 }
 
-// 分配一个新的硬盘块
+// 分配硬盘块 返回块号
 static uint balloc(uint dev)
 {
-    struct buf* bp = 0;
+    // 遍历所有的位图分区
+    for (uint bp_part = 0; bp_part < sb.size; bp_part += BPB) {
+        buf* bp = bread(dev, BBLOCK(bp_part, sb)); //* 锁定位图块
 
-    // 遍历所有位图块分区 (目前只有一块)
-    for (int part = 0; part < sb.size; part += BPB) {
-        // 读取位图块
-        bp = bread(dev, BBLOCK(part, sb));
-        // 遍历该位图块的所有位
-        for (int bi = 0; bi < BPB && part + bi < sb.size; bi++) {
-            int m = 1 << (bi % 8);
+        // 遍历该分区的所有块
+        for (uint bi = 0; bi < BPB && bp_part + bi < sb.size; bi++) {
+            uchar mask = 1 << (bi % 8);
+
             // 如果当前位是空闲的
-            if ((bp->data[bi / 8] & m) == 0) {
-                bp->data[bi / 8] |= m; // 标记此位
-                log_write(bp);         // 写回位图块(日志)
-                brelse(bp);            // 释放位图块缓存
-                bzero(dev, part + bi); // 清空新分配的块
-                return part + bi;
+            if ((bp->data[bi / 8] & mask) == 0) {
+                bp->data[bi / 8] |= mask; // 标记此位
+                log_write(bp);            // 写回日志
+                brelse(bp);               //* 释放位图块
+
+                bzero(dev, bp_part + bi); // 清空分配块
+                return bp_part + bi;      // 返回分配块号
             }
         }
-        brelse(bp);
-    }
 
-    printf("balloc: out of blocks\n");
+        brelse(bp); //* 释放位图块
+        panic("balloc: out of blocks");
+    }
     return 0;
 }
 
-// 释放一个已分配的硬盘块
-static void bfree(int dev, uint b)
+// 释放硬盘块
+static void bfree(int dev, uint bno)
 {
-    struct buf* bp;
-    int bi, m;
+    uint bi = bno % BPB;
+    uchar mask = 1 << (bi % 8);
+    buf* bp = bread(dev, BBLOCK(bno, sb)); //* 读取位图块
 
-    bp = bread(dev, BBLOCK(b, sb)); // 读取位图块
-    bi = b % BPB;                   // 在位图块中的偏移
-    m = 1 << (bi % 8);
-
-    // 确保块是已分配的
-    if ((bp->data[bi / 8] & m) == 0)
+    // 确保此块已分配
+    if ((bp->data[bi / 8] & mask) == 0)
         panic("freeing free block");
 
-    bp->data[bi / 8] &= ~m; // 清除位图块中的位标记
-    log_write(bp);          // 写回位图块(日志)
-    brelse(bp);             // 释放位图块缓存
+    bp->data[bi / 8] &= ~mask; // 清除标记
+    log_write(bp);             // 写回日志
+    brelse(bp);                //* 释放位图块
 }
 
 // -------------------------------- Inode -------------------------------- //
 
-// minode表 (内存)
+// 内存-索引表
 struct {
-    struct spinlock lock;        // itable锁
-    struct minode inode[NINODE]; // minode表 (50项)
+    spinlock lock;        // 索引表锁
+    minode inode[NINODE]; // 索引数组
 } itable;
 
-// 初始化inode系统
 void iinit()
 {
-    // 初始化itable锁
     initlock(&itable.lock, "itable");
-
-    // 初始化每个活跃inode的锁
     for (int i = 0; i < NINODE; i++)
         initsleeplock(&itable.inode[i].lock, "inode");
 }
@@ -138,29 +125,24 @@ static struct minode* iget(uint dev, uint inum);
 
 // 从硬盘分配一个空闲inode并标记类型type
 // 返回此inum在内存中对应的minode表项
-struct minode* ialloc(uint dev, short type)
+minode* ialloc(uint dev, short type) // stat.h
 {
-    struct buf* bp;
-    struct dinode* dip;
-
     for (int inum = 1; inum < sb.ninodes; inum++) {
-        // 计算第i个inode所在的硬盘块
-        bp = bread(dev, IBLOCK(inum, sb));
-
-        // 读取该硬盘块上对应的dinode项
-        dip = (struct dinode*)bp->data + inum % IPB;
+        buf* bp = bread(dev, IBLOCK(inum, sb)); //* 锁定索引块
+        dinode* dip = (dinode*)bp->data + inum % IPB;
 
         // 如果此dinode是空闲的
         if (dip->type == 0) {
             memset(dip, 0, sizeof(*dip)); // 将dinode清零
             dip->type = type;             // 标记dinode类型
             log_write(bp);                // 写回更新后的d索引块 (日志)
-            brelse(bp);                   // 释放d索引块缓存
+            brelse(bp);                   //* 释放索引块
             return iget(dev, inum);       // 返回inum对应的minode表项 (内存)
         }
-        brelse(bp);
+        brelse(bp); //* 释放索引块
     }
-    printf("ialloc: no inodes\n");
+
+    panic("ialloc: no inodes");
     return 0;
 }
 
@@ -339,18 +321,18 @@ static uint bmap(struct minode* ip, uint bn)
     bn -= NDIRECT;
     if (bn < NINDIRECT) {
         if ((addr = ip->addrs[NDIRECT]) == 0) {
-            addr = balloc(ip->dev); // 分配新间接索引块
+            addr = balloc(ip->dev); // 分配新间接引导块
             if (addr == 0)
                 return 0;
             ip->addrs[NDIRECT] = addr;
         }
-        bp = bread(ip->dev, addr); // 读取间接索引块
+        bp = bread(ip->dev, addr); // 读取间接引导块
         a = (uint*)bp->data;
         if ((addr = a[bn]) == 0) {
             addr = balloc(ip->dev); // 分配新间接块
             if (addr) {
                 a[bn] = addr;
-                log_write(bp); // 更新写回间接索引块
+                log_write(bp); // 更新写回间接引导块
             }
         }
         brelse(bp);

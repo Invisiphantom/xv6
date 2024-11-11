@@ -1,9 +1,7 @@
 
-// 互斥自旋锁
-struct spinlock {
-    uint locked;  // 锁是否被占用
-
-    // debug
-    char* name;       // 锁名称
-    struct cpu* cpu;  // 占用锁的CPU
-};
+// 自旋锁
+typedef struct spinlock {
+    char* name;      // 锁名称
+    uint locked;     // 是否持有
+    struct cpu* cpu; // 持有锁的CPU
+} spinlock;

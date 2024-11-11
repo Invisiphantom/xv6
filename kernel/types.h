@@ -1,4 +1,8 @@
 
+#define true 1
+#define false 0
+#define auto __auto_type
+
 typedef unsigned int uint;
 typedef unsigned short ushort;
 typedef unsigned char uchar;

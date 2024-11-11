@@ -62,8 +62,7 @@ int exec(char* path, char** argv)
         if (ph.vaddr % PGSIZE != 0)
             goto bad;
         uint64 sz1;
-        if ((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags)))
-            == 0)
+        if ((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0)
             goto bad;
         sz = sz1;
         if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
@@ -145,8 +144,7 @@ bad:
 // va must be page-aligned
 // and the pages from va to va+sz must already be mapped.
 // Returns 0 on success, -1 on failure.
-static int loadseg(
-    pagetable_t pagetable, uint64 va, struct minode* ip, uint offset, uint sz)
+static int loadseg(pagetable_t pagetable, uint64 va, struct minode* ip, uint offset, uint sz)
 {
     uint i, n;
     uint64 pa;

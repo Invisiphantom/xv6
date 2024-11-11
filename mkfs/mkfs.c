@@ -25,11 +25,11 @@
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #ifndef static_assert
-#define static_assert(a, b)                                                              \
-    do {                                                                                 \
-        switch (0)                                                                       \
-        case 0:                                                                          \
-        case (a):;                                                                       \
+#define static_assert(a, b)                                                                        \
+    do {                                                                                           \
+        switch (0)                                                                                 \
+        case 0:                                                                                    \
+        case (a):;                                                                                 \
     } while (0)
 #endif
 
@@ -37,11 +37,11 @@
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
 // [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
 #define NINODES 200                   // 索引结点的最大数量
-int nbitmap = FSSIZE / BPB + 1;       // 需要的位图块数量
-int ninodeblocks = NINODES / IPB + 1; // 需要的索引块数量
-int nlog = LOGSIZE;                   // 需要的日志块数量
-int nmeta;                            // 元数据块数量
-int nblocks;                          // 空闲数据块数量
+int nbitmap = FSSIZE / BPB + 1;       // 需要的位图块数量 (1)
+int ninodeblocks = NINODES / IPB + 1; // 需要的索引块数量 (13)
+int nlog = LOGSIZE;                   // 需要的日志块数量 (30)
+int nmeta;                            // 元数据块数量 (46)
+int nblocks;                          // 空闲数据块数量 (1954)
 
 int fsfd;             // fs.img 文件描述符
 struct superblock sb; // 超级块结构体
@@ -57,7 +57,7 @@ void rinode(uint inum, struct dinode* ip);
 void winode(uint inum, struct dinode* ip);
 void iappend(uint inum, void* p, int n);
 
-void balloc(int used);
+void balloc(uint used);
 void die(const char*);
 
 // 大小端序转换(16位)
@@ -85,10 +85,7 @@ uint xint(uint x)
 int main(int argc, char* argv[])
 {
     int cnt, fd;
-    uint rootino, inum, off;
-    struct dirent de;
     char buf[BSIZE];
-    struct dinode din;
 
     // 确保int是4字节
     static_assert(sizeof(int) == 4, "Integers must be 4 bytes!");
@@ -106,18 +103,18 @@ int main(int argc, char* argv[])
     if (fsfd < 0)
         die(argv[1]);
 
-    // 元数据块数量 (boot, sb, nlog, inode, bitmap)
+    // 元数据块数量 (46) (boot, sb, nlog, inode, bitmap)
     nmeta = 1 + 1 + nlog + ninodeblocks + nbitmap;
-    nblocks = FSSIZE - nmeta; // 空闲数据块数量
+    nblocks = FSSIZE - nmeta; // 空闲数据块数量 (1954)
 
     sb.magic = FSMAGIC;                           // 魔数
     sb.size = xint(FSSIZE);                       // 文件系统总块数
-    sb.nblocks = xint(nblocks);                   // 数据块数量
-    sb.ninodes = xint(NINODES);                   // 索引块数量
-    sb.nlog = xint(nlog);                         // 日志块数量
-    sb.logstart = xint(2);                        // 第一个日志块的块号
-    sb.inodestart = xint(2 + nlog);               // 第一个索引块的块号
-    sb.bmapstart = xint(2 + nlog + ninodeblocks); // 第一个位图块的块号
+    sb.nblocks = xint(nblocks);                   // 数据块数量 (1954)
+    sb.ninodes = xint(NINODES);                   // 索引数量 (200)
+    sb.nlog = xint(nlog);                         // 日志块数量 (30)
+    sb.logstart = xint(2);                        // 第一个日志块的块号 (2)
+    sb.inodestart = xint(2 + nlog);               // 第一个索引块的块号 (32)
+    sb.bmapstart = xint(2 + nlog + ninodeblocks); // 第一个位图块的块号 (234)
 
     printf("total=%d\n"
            "|--nmeta=%d\n"
@@ -142,10 +139,11 @@ int main(int argc, char* argv[])
     wsect(1, buf);
 
     // 分配新的根目录inode
-    rootino = ialloc(T_DIR);
+    uint rootino = ialloc(T_DIR);
     assert(rootino == ROOTINO);
 
     // 向rootino追加 dirent{rootino, "."}
+    struct dirent de;
     memset(&de, 0, sizeof(de));
     de.inum = xshort(rootino);
     strcpy(de.name, ".");
@@ -182,7 +180,7 @@ int main(int argc, char* argv[])
         assert(strlen(shortname) <= DIRSIZ);
 
         // 分配新的文件inode
-        inum = ialloc(T_FILE);
+        uint inum = ialloc(T_FILE);
 
         // 向根目录inode追加 dirent{inum, shortname}
         memset(&de, 0, sizeof(de));
@@ -199,8 +197,9 @@ int main(int argc, char* argv[])
     }
 
     // 将根目录大小对齐到BSIZE
+    struct dinode din;
     rinode(rootino, &din);
-    off = xint(din.size);
+    uint off = xint(din.size);
     off = ((off / BSIZE) + 1) * BSIZE;
     din.size = xint(off);
     winode(rootino, &din);
@@ -251,42 +250,34 @@ uint ialloc(ushort type)
     return inum;
 }
 
-// 读取第inum个inode信息到ip
-void rinode(uint inum, struct dinode* ip)
+// 读取硬盘-索引项
+void rinode(uint inum, dinode* ip)
 {
-    uint bn;
     char buf[BSIZE];
-    struct dinode* dip;
 
-    // 计算第inum个inode所在索引块
-    bn = IBLOCK(inum, sb);
-
-    // 读取该索引块到buf
+    // 计算并读取硬盘-索引块
+    uint bn = IBLOCK(inum, sb);
     rsect(bn, buf);
 
-    // 从索引块中读取第inum个inode信息
-    dip = ((struct dinode*)buf) + (inum % IPB);
+    // 解析出对应索引项
+    dinode* dip = ((struct dinode*)buf) + (inum % IPB);
     *ip = *dip;
 }
 
-// 将inode信息ip写入到索引块的第inum项
-void winode(uint inum, struct dinode* ip)
+// 写回硬盘-索引项
+void winode(uint inum, dinode* ip)
 {
     char buf[BSIZE];
-    uint bn;
-    struct dinode* dip;
 
-    // 计算第inum个inode所在索引块
-    bn = IBLOCK(inum, sb);
-
-    // 读取该索引块到buf
+    // 计算并读取硬盘-索引块
+    uint bn = IBLOCK(inum, sb);
     rsect(bn, buf);
 
-    // 将第inum个inode信息写入到buf
-    dip = ((struct dinode*)buf) + (inum % IPB);
+    // 将索引写入缓冲区
+    dinode* dip = ((struct dinode*)buf) + (inum % IPB);
     *dip = *ip;
 
-    // 将buf写回到索引块
+    // 写回缓冲区
     wsect(bn, buf);
 }
 
@@ -365,7 +356,7 @@ void iappend(uint inum, void* xp, int n)
 
 // 写入首个位图块
 // used:现已使用的块数
-void balloc(int used)
+void balloc(uint used)
 {
     uchar buf[BSIZE];
 
@@ -374,7 +365,7 @@ void balloc(int used)
 
     // 填充位图块内容 (used)
     memset(buf, 0, BSIZE);
-    for (int i = 0; i < used; i++)
+    for (uint i = 0; i < used; i++)
         buf[i / 8] = buf[i / 8] | (0x1 << (i % 8));
 
     printf("balloc: 位图块处于第 %d 块\n", sb.bmapstart);

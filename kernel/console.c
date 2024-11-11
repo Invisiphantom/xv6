@@ -1,13 +1,3 @@
-
-// 通过UART实现的终端输入输出 (每次读取一行)
-
-// 实现下述特殊输入字符:
-//   Enter  -- end of line
-//   Ctrl+H -- 退格
-//   Ctrl+U -- kill line
-//   Ctrl+D -- 文件结束符
-//   Ctrl+P -- 打印进程列表
-
 #include <stdarg.h>
 
 #include "types.h"
@@ -22,10 +12,10 @@
 #include "proc.h"
 
 #define BACKSPACE 0x100
-#define C(x) ((x) - '@') // Ctrl+x
+#define C(x) ((x) - '@')
 
-// 传递单字符到UART
-// printf中调用, 用于回显输入字符, 但不是write
+// 将单字符直接写到UART
+// 用于printf和终端回显
 void consputc(int c)
 {
     // 如果用户输入了退格, 就用空格覆盖
@@ -50,22 +40,16 @@ struct {
 // file.c->filewrite()中调用, 返回写入的字符数
 int consolewrite(int user_src, uint64 src, int n)
 {
-    int i;
-
-    for (i = 0; i < n; i++) {
-        char c;
-        // 将用户空间的字符 拷贝到内核空间
+    int i = 0;
+    for (char c; i < n; i++) {
+        // 将用户空间的字符 拷贝到内核空间&c
         // dst=&c, user_src=user_src, src=src+i, len=1
         if (either_copyin(&c, user_src, src + i, 1) == -1)
             break;
         uartputc(c);
     }
-
     return i;
 }
-
-// copy (up to) a whole input line to dst.
-// user_dist indicates whether dst is a user or kernel address.
 
 // 终端设备的读函数 devsw[CONSOLE].read
 // <sysfile.c>sys_read() -> <file.c>fileread() 调用
@@ -119,13 +103,22 @@ int consoleread(int user_dst, uint64 dst, int n)
     return target - n;
 }
 
+// 通过UART实现的终端输入输出 (每次读取一行)
+
+// 实现下述特殊输入字符:
+//   Enter  -- end of line
+//   Ctrl+H -- 退格
+//   Ctrl+U -- kill line
+//   Ctrl+D -- 文件结束符
+//   Ctrl+P -- 打印进程列表
+
 // 终端输入中断处理函数
 // 处理退格/删除, 追加到cons.buf
 // 如果一整行已经到达, 就唤醒consoleread()
 // 在 <trap.c>devintr() -> <uart.c>uartintr() 中调用
 void consoleintr(int c)
 {
-    acquire(&cons.lock); // 获取终端锁
+    acquire(&cons.lock); //* 获取终端锁
 
     switch (c) {
         // Ctrl+P 打印进程列表
@@ -172,7 +165,7 @@ void consoleintr(int c)
             break;
     }
 
-    release(&cons.lock); // 释放终端锁
+    release(&cons.lock); //* 释放终端锁
 }
 
 void consoleinit(void)
@@ -182,7 +175,6 @@ void consoleinit(void)
     uartinit(); // 初始化UART控制器
 
     // 设置终端设备的读写函数
-    // 指向consoleread, consolewrite
     devsw[CONSOLE].read = consoleread;
     devsw[CONSOLE].write = consolewrite;
 }
