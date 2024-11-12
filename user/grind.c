@@ -208,8 +208,8 @@ void go(int which_child)
                 printf("grind: fstat reports wrong size %d\n", (int)st.size);
                 exit(1);
             }
-            if (st.ino > 200) {
-                printf("grind: fstat reports crazy i-number %d\n", st.ino);
+            if (st.inum > 200) {
+                printf("grind: fstat reports crazy i-number %d\n", st.inum);
                 exit(1);
             }
             close(fd1);

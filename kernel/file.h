@@ -13,17 +13,16 @@
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
 // [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
 
-// 内存文件系统格式
-
+typedef enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } FD_type;
 struct file {
-    enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type; // 文件类型
-    int ref;                                             // 引用计数
-    char readable;                                       // 是否可读
-    char writable;                                       // 是否可写
-    struct pipe* pipe;                                   // 管道信息
-    struct minode* ip;                                   // 内存inode信息
-    uint off;                                            // 文件描述符偏移量
-    short major;                                         // 主设备号
+    FD_type type;      // 文件类型
+    int ref;           // 引用计数
+    char readable;     // 是否可读
+    char writable;     // 是否可写
+    struct pipe* pipe; // 管道信息
+    struct minode* ip; // 内存inode信息
+    uint off;          // 文件描述符偏移量
+    short major;       // 主设备号
 };
 
 #define major(dev) ((dev) >> 16 & 0xFFFF)     // 获取主设备号 (高16位)
@@ -40,7 +39,7 @@ typedef struct minode {
     int valid; // 有效位
 
     // 硬盘-索引项
-    short type;              // 文件类型 (stat.h)
+    short type;              // 索引类型 (stat.h)
     short major;             // 主设备号
     short minor;             // 次设备号
     short nlink;             // 硬链接数

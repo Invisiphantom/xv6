@@ -2,11 +2,11 @@
 #include "riscv.h"
 #include "defs.h"
 #include "param.h"
+#include "stat.h"
 #include "fs.h"
 #include "spinlock.h"
 #include "sleeplock.h"
 #include "file.h"
-#include "stat.h"
 #include "proc.h"
 
 // 主设备号->设备读写函数
@@ -125,8 +125,7 @@ int fileread(struct file* f, uint64 addr, int n)
     else if (f->type == FD_INODE) {
         ilock(f->ip); // 获取锁
 
-        // minode=f->ip, user_dst=1, dst=addr, off=f->off, n=n
-        if ((r = readi(f->ip, 1, addr, f->off, n)) > 0)
+        if ((r = readi(f->ip, true, addr, f->off, n)) > 0)
             f->off += r; // 更新文件描述符偏移量
 
         iunlock(f->ip); // 释放锁

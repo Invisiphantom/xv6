@@ -13,7 +13,6 @@
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
 // [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
 
-
 #define BSIZE 1024 // 块大小
 #define FSMAGIC 0x10203040
 typedef struct superblock {
@@ -37,7 +36,7 @@ typedef struct superblock {
 
 // 硬盘-索引项
 typedef struct dinode {
-    short type;              // 文件类型 (stat.h)
+    short type;              // 索引类型 (stat.h)
     short major;             // 主设备号
     short minor;             // 次设备号
     short nlink;             // 硬链接数
@@ -57,8 +56,8 @@ typedef struct dinode {
 
 #define DIRSIZ 14 // 文件名最大长度
 
-// 用于给目录追加文件
-struct dirent {
+// 目录下的文件项
+typedef struct dirent {
     ushort inum;       // 索引编号
     char name[DIRSIZ]; // 文件名称
-};
+} dirent;

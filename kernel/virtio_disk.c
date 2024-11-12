@@ -25,6 +25,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "sleeplock.h"
+#include "stat.h"
 #include "fs.h"
 #include "buf.h"
 #include "virtio.h"

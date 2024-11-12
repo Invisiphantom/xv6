@@ -23,6 +23,7 @@
 #include "sleeplock.h"
 #include "riscv.h"
 #include "defs.h"
+#include "stat.h"
 #include "fs.h"
 #include "buf.h"
 

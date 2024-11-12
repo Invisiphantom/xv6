@@ -3,8 +3,7 @@
 void* memset(void* dst, int c, uint n)
 {
     char* cdst = (char*)dst;
-    int i;
-    for (i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         cdst[i] = c;
     }
     return dst;
@@ -12,10 +11,9 @@ void* memset(void* dst, int c, uint n)
 
 int memcmp(const void* v1, const void* v2, uint n)
 {
-    const uchar *s1, *s2;
-
-    s1 = v1;
-    s2 = v2;
+    const uchar* s1 = v1;
+    const uchar* s2 = v2;
+    
     while (n-- > 0) {
         if (*s1 != *s2)
             return *s1 - *s2;
@@ -27,14 +25,12 @@ int memcmp(const void* v1, const void* v2, uint n)
 
 void* memmove(void* dst, const void* src, uint n)
 {
-    const char* s;
-    char* d;
-
     if (n == 0)
         return dst;
 
-    s = src;
-    d = dst;
+    char* d = dst;
+    const char* s = src;
+
     if (s < d && s + n > d) {
         s += n;
         d += n;
@@ -47,50 +43,44 @@ void* memmove(void* dst, const void* src, uint n)
     return dst;
 }
 
-// memcpy exists to placate GCC.  Use memmove.
 void* memcpy(void* dst, const void* src, uint n) { return memmove(dst, src, n); }
 
-// 比较字符串s和t的前n个字符
-int strncmp(const char* p, const char* q, uint n)
+// 比较字符串 (最多n个字符)
+int strncmp(const char* s1, const char* s2, uint n)
 {
-    while (n > 0 && *p && *p == *q)
-        n--, p++, q++;
+    while (n > 0 && *s1 && *s1 == *s2)
+        n--, s1++, s2++;
     if (n == 0)
         return 0;
-    return (uchar)*p - (uchar)*q;
+    return (uchar)*s1 - (uchar)*s2;
 }
 
-char* strncpy(char* s, const char* t, int n)
+char* strncpy(char* dst, const char* src, int n)
 {
-    char* os;
-
-    os = s;
-    while (n-- > 0 && (*s++ = *t++) != 0)
+    char* d = dst;
+    while (n-- > 0 && (*dst++ = *src++) != 0)
         ;
     while (n-- > 0)
-        *s++ = 0;
-    return os;
+        *dst++ = 0;
+    return d;
 }
 
 // 将t复制到s, 最多n个字符, 并保证s以null结尾
-char* safestrcpy(char* s, const char* t, int n)
+char* safestrcpy(char* dst, const char* src, int n)
 {
-    char* os;
-
-    os = s;
+    char* d = dst;
     if (n <= 0)
-        return os;
-    while (--n > 0 && (*s++ = *t++) != 0)
+        return d;
+    while (--n > 0 && (*dst++ = *src++) != 0)
         ;
-    *s = 0;
-    return os;
+    *dst = 0;
+    return d;
 }
 
 // 返回字符串s的长度(不包括结尾null)
 int strlen(const char* s)
 {
     int n;
-
     for (n = 0; s[n]; n++)
         ;
     return n;

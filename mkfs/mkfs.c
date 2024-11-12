@@ -20,8 +20,8 @@
 #define stat std_stat
 
 #include "kernel/types.h"
-#include "kernel/fs.h"
 #include "kernel/stat.h"
+#include "kernel/fs.h"
 #include "kernel/param.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -140,7 +140,7 @@ int main(int argc, char* argv[])
     wsect(1, buf);
 
     // 分配新的根目录inode
-    uint rootino = ialloc(T_DIR);
+    uint rootino = ialloc(I_DIR);
     assert(rootino == ROOTINO);
 
     // 向rootino追加 dirent{rootino, "."}
@@ -181,7 +181,7 @@ int main(int argc, char* argv[])
         assert(strlen(shortname) <= DIRSIZ);
 
         // 分配新的文件inode
-        uint inum = ialloc(T_FILE);
+        uint inum = ialloc(I_FILE);
 
         // 向根目录inode追加 dirent{inum, shortname}
         memset(&de, 0, sizeof(de));

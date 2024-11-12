@@ -8,9 +8,9 @@
 #include "riscv.h"
 #include "defs.h"
 #include "param.h"
-#include "stat.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "stat.h"
 #include "fs.h"
 #include "sleeplock.h"
 #include "file.h"
@@ -152,7 +152,7 @@ uint64 sys_link(void)
     ilock(ip); // 获取inode锁
 
     // 如果old是目录, 则返回-1
-    if (ip->type == T_DIR) {
+    if (ip->type == I_DIR) {
         iunlockput(ip);
         end_op();
         return -1;
@@ -197,7 +197,7 @@ static int isdirempty(struct minode* dp)
     struct dirent de;
 
     for (off = 2 * sizeof(de); off < dp->size; off += sizeof(de)) {
-        if (readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+        if (readi(dp, false, (uint64)&de, off, sizeof(de)) != sizeof(de))
             panic("isdirempty: readi");
         if (de.inum != 0)
             return 0;
@@ -242,7 +242,7 @@ uint64 sys_unlink(void)
         panic("unlink: nlink < 1");
 
     // 如果ip是目录, 且不为空, 则返回-1
-    if (ip->type == T_DIR && !isdirempty(ip)) {
+    if (ip->type == I_DIR && !isdirempty(ip)) {
         iunlockput(ip);
         goto bad;
     }
@@ -252,7 +252,7 @@ uint64 sys_unlink(void)
         panic("unlink: writei");
 
     // 如果ip是目录, 则dp的硬链接数-1
-    if (ip->type == T_DIR) {
+    if (ip->type == I_DIR) {
         dp->nlink--;
         iupdate(dp);
     }
@@ -273,10 +273,9 @@ bad:
 }
 
 // 创建inode
-// path:文件路径 type:文件类型 major:主设备号 minor:次设备号
-static struct minode* create(char* path, short type, short major, short minor)
+static minode* create(char* path, short type, short major, short minor)
 {
-    struct minode *ip, *dp;
+    minode *ip, *dp;
     char name[DIRSIZ];
 
     // 获取path->对应inode->其父目录inode
@@ -289,7 +288,7 @@ static struct minode* create(char* path, short type, short major, short minor)
     if ((ip = dirlookup(dp, name, 0)) != 0) {
         iunlockput(dp);
         ilock(ip);
-        if (type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+        if (type == I_FILE && (ip->type == I_FILE || ip->type == I_DEVICE))
             return ip;
         iunlockput(ip);
         return 0;
@@ -307,7 +306,7 @@ static struct minode* create(char* path, short type, short major, short minor)
     ip->nlink = 1;
     iupdate(ip);
 
-    if (type == T_DIR) { // Create . and .. entries.
+    if (type == I_DIR) { // Create . and .. entries.
         // No ip->nlink++ for ".": avoid cyclic ref count.
         if (dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
             goto fail;
@@ -316,7 +315,7 @@ static struct minode* create(char* path, short type, short major, short minor)
     if (dirlink(dp, name, ip->inum) < 0)
         goto fail;
 
-    if (type == T_DIR) {
+    if (type == I_DIR) {
         // now that success is guaranteed:
         dp->nlink++; // for ".."
         iupdate(dp);
@@ -342,7 +341,7 @@ uint64 sys_open(void)
     char path[MAXPATH];
     int fd, flags;
     struct file* f;
-    struct minode* ip;
+    minode* mip;
     int n;
 
     argint(1, &flags);
@@ -353,28 +352,29 @@ uint64 sys_open(void)
 
     // 如果有创建标志
     if (flags & O_CREATE) {
-        ip = create(path, T_FILE, 0, 0);
-        if (ip == 0) {
-            end_op(); //*
-            return -1;
-        }
-
-
-    } else {
-        if ((ip = namei(path)) == 0) {
-            end_op(); //*
-            return -1;
-        }
-        ilock(ip);
-        if (ip->type == T_DIR && flags != O_RDONLY) {
-            iunlockput(ip);
+        mip = create(path, I_FILE, 0, 0);
+        if (mip == 0) {
             end_op(); //*
             return -1;
         }
     }
 
-    if (ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)) {
-        iunlockput(ip);
+    else {
+        if ((mip = namei(path)) == 0) {
+            end_op(); //*
+            return -1;
+        }
+        ilock(mip);
+        if (mip->type == I_DIR && flags != O_RDONLY) {
+            iunlockput(mip);
+            end_op(); //*
+            return -1;
+        }
+    }
+
+    // 确保设备号合法
+    if (mip->type == I_DEVICE && (mip->major < 0 || mip->major >= NDEV)) {
+        iunlockput(mip);
         end_op(); //*
         return -1;
     }
@@ -382,27 +382,28 @@ uint64 sys_open(void)
     if ((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0) {
         if (f)
             fileclose(f);
-        iunlockput(ip);
+        iunlockput(mip);
         end_op(); //*
         return -1;
     }
 
-    if (ip->type == T_DEVICE) {
+    if (mip->type == I_DEVICE) {
         f->type = FD_DEVICE;
-        f->major = ip->major;
+        f->major = mip->major;
     } else {
         f->type = FD_INODE;
         f->off = 0;
     }
-    f->ip = ip;
+
+    f->ip = mip;
     f->readable = !(flags & O_WRONLY);
     f->writable = (flags & O_WRONLY) || (flags & O_RDWR);
 
-    if ((flags & O_TRUNC) && ip->type == T_FILE) {
-        itrunc(ip);
+    if ((flags & O_TRUNC) && mip->type == I_FILE) {
+        itrunc(mip);
     }
 
-    iunlock(ip);
+    iunlock(mip);
     end_op();
 
     return fd;
@@ -415,7 +416,7 @@ uint64 sys_mkdir(void)
     struct minode* ip;
 
     begin_op();
-    if (argstr(0, path, MAXPATH) < 0 || (ip = create(path, T_DIR, 0, 0)) == 0) {
+    if (argstr(0, path, MAXPATH) < 0 || (ip = create(path, I_DIR, 0, 0)) == 0) {
         end_op();
         return -1;
     }
@@ -434,8 +435,7 @@ uint64 sys_mknod(void)
     begin_op();
     argint(1, &major);
     argint(2, &minor);
-    if ((argstr(0, path, MAXPATH)) < 0
-        || (ip = create(path, T_DEVICE, major, minor)) == 0) {
+    if ((argstr(0, path, MAXPATH)) < 0 || (ip = create(path, I_DEVICE, major, minor)) == 0) {
         end_op();
         return -1;
     }
@@ -457,7 +457,7 @@ uint64 sys_chdir(void)
         return -1;
     }
     ilock(ip);
-    if (ip->type != T_DIR) {
+    if (ip->type != I_DIR) {
         iunlockput(ip);
         end_op();
         return -1;

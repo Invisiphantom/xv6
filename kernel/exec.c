@@ -40,7 +40,7 @@ int exec(char* path, char** argv)
     ilock(ip);
 
     // Check ELF header
-    if (readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
+    if (readi(ip, false, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
         goto bad;
 
     if (elf.magic != ELF_MAGIC)
@@ -51,7 +51,7 @@ int exec(char* path, char** argv)
 
     // Load program into memory.
     for (i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph)) {
-        if (readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
+        if (readi(ip, false, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
             goto bad;
         if (ph.type != ELF_PROG_LOAD)
             continue;
@@ -157,7 +157,7 @@ static int loadseg(pagetable_t pagetable, uint64 va, struct minode* ip, uint off
             n = sz - i;
         else
             n = PGSIZE;
-        if (readi(ip, 0, (uint64)pa, offset + i, n) != n)
+        if (readi(ip, false, (uint64)pa, offset + i, n) != n)
             return -1;
     }
 

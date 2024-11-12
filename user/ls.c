@@ -41,12 +41,12 @@ void ls(char* path)
     }
 
     switch (st.type) {
-        case T_DEVICE:
-        case T_FILE:
-            printf("%s %d %d %d\n", fmtname(path), st.type, st.ino, (int)st.size);
+        case I_DEVICE:
+        case I_FILE:
+            printf("%s %d %d %d\n", fmtname(path), st.type, st.inum, (int)st.size);
             break;
 
-        case T_DIR:
+        case I_DIR:
             if (strlen(path) + 1 + DIRSIZ + 1 > sizeof buf) {
                 printf("ls: path too long\n");
                 break;
@@ -63,8 +63,11 @@ void ls(char* path)
                     printf("ls: cannot stat %s\n", buf);
                     continue;
                 }
-                printf("%s %d %d %d\n", fmtname(buf), st.type, st.ino, (int)st.size);
+                printf("%s %d %d %d\n", fmtname(buf), st.type, st.inum, (int)st.size);
             }
+            break;
+        default:
+            printf("ls: unknown file type %d\n", st.type);
             break;
     }
     close(fd);
