@@ -1,18 +1,30 @@
-//
-// File-system system calls.
-// Mostly argument checking, since we don't trust
-// user code, and calls into file.c and fs.c.
-//
+
+// 文件系统实现:
+//  + UART: 串口输入输出 (printf.c console.c uart.c)
+//  -------------------------------------------------
+//  + FS.img: 文件系统映像 (mkfs.c)
+//  + VirtIO: 虚拟硬盘驱动 (virtio.h virtio_disk.c)
+//  + BCache: LRU缓存链环 (buf.h bio.c)
+//  + Log: 两步提交的日志系统 (log.c)
+//  + Inode Dir Path: 硬盘文件系统实现 (stat.h fs.h fs.c)
+//  + Pipe: 管道实现 (pipe.c)
+//  + File Descriptor: 文件描述符 (file.h file.c)
+//  + File SysCall: 文件系统调用 (fcntl.h sysfile.c)
+
+// 硬盘布局
+// [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
+// [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
+
 
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
 #include "param.h"
 #include "spinlock.h"
+#include "sleeplock.h"
 #include "proc.h"
 #include "stat.h"
 #include "fs.h"
-#include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
 
@@ -141,11 +153,11 @@ uint64 sys_link(void)
     if (argstr(0, old, MAXPATH) < 0 || argstr(1, new, MAXPATH) < 0)
         return -1;
 
-    begin_op(); // 获取日志锁
+    begin_op(); //* 事务开始
 
     // 如果old对应的inode不存在, 则返回-1
     if ((ip = namei(old)) == 0) {
-        end_op();
+        end_op(); //* 事务结束
         return -1;
     }
 
@@ -154,7 +166,7 @@ uint64 sys_link(void)
     // 如果old是目录, 则返回-1
     if (ip->type == I_DIR) {
         iunlockput(ip);
-        end_op();
+        end_op(); //* 事务结束
         return -1;
     }
 
@@ -177,7 +189,7 @@ uint64 sys_link(void)
 
     iunlockput(dp); // 释放父目录inode锁
     iput(ip);       // 释放inode锁
-    end_op();       // 释放日志锁
+    end_op();       //* 事务结束
 
     return 0;
 
@@ -186,7 +198,7 @@ bad:
     ip->nlink--;
     iupdate(ip);
     iunlockput(ip);
-    end_op();
+    end_op(); //* 事务结束
     return -1;
 }
 
@@ -218,11 +230,11 @@ uint64 sys_unlink(void)
     if (argstr(0, path, MAXPATH) < 0)
         return -1;
 
-    begin_op(); // 获取日志锁
+    begin_op(); //* 事务开始
 
     // 获取path的父目录inode, 记为dp
     if ((dp = nameiparent(path, name)) == 0) {
-        end_op();
+        end_op(); //* 事务结束
         return -1;
     }
 
@@ -262,13 +274,13 @@ uint64 sys_unlink(void)
     iupdate(ip);
     iunlockput(ip);
 
-    end_op();
+    end_op(); //* 事务结束
 
     return 0;
 
 bad:
     iunlockput(dp);
-    end_op();
+    end_op(); //* 事务结束
     return -1;
 }
 
@@ -348,26 +360,26 @@ uint64 sys_open(void)
     if ((n = argstr(0, path, MAXPATH)) < 0)
         return -1;
 
-    begin_op(); //*
+    begin_op(); //* 事务开始
 
     // 如果有创建标志
     if (flags & O_CREATE) {
         mip = create(path, I_FILE, 0, 0);
         if (mip == 0) {
-            end_op(); //*
+            end_op(); //* 事务结束
             return -1;
         }
     }
 
     else {
         if ((mip = namei(path)) == 0) {
-            end_op(); //*
+            end_op(); //* 事务结束
             return -1;
         }
         ilock(mip);
         if (mip->type == I_DIR && flags != O_RDONLY) {
             iunlockput(mip);
-            end_op(); //*
+            end_op(); //* 事务结束
             return -1;
         }
     }
@@ -375,7 +387,7 @@ uint64 sys_open(void)
     // 确保设备号合法
     if (mip->type == I_DEVICE && (mip->major < 0 || mip->major >= NDEV)) {
         iunlockput(mip);
-        end_op(); //*
+        end_op(); //* 事务结束
         return -1;
     }
 
@@ -383,7 +395,7 @@ uint64 sys_open(void)
         if (f)
             fileclose(f);
         iunlockput(mip);
-        end_op(); //*
+        end_op(); //* 事务结束
         return -1;
     }
 
@@ -395,7 +407,7 @@ uint64 sys_open(void)
         f->off = 0;
     }
 
-    f->ip = mip;
+    f->mip = mip;
     f->readable = !(flags & O_WRONLY);
     f->writable = (flags & O_WRONLY) || (flags & O_RDWR);
 
@@ -404,7 +416,7 @@ uint64 sys_open(void)
     }
 
     iunlock(mip);
-    end_op();
+    end_op(); //* 事务结束
 
     return fd;
 }
@@ -415,13 +427,13 @@ uint64 sys_mkdir(void)
     char path[MAXPATH];
     struct minode* ip;
 
-    begin_op();
+    begin_op(); //* 事务开始
     if (argstr(0, path, MAXPATH) < 0 || (ip = create(path, I_DIR, 0, 0)) == 0) {
-        end_op();
+        end_op(); //* 事务结束
         return -1;
     }
     iunlockput(ip);
-    end_op();
+    end_op(); //* 事务结束
     return 0;
 }
 
@@ -432,15 +444,15 @@ uint64 sys_mknod(void)
     char path[MAXPATH];
     int major, minor;
 
-    begin_op();
+    begin_op(); //* 事务开始
     argint(1, &major);
     argint(2, &minor);
     if ((argstr(0, path, MAXPATH)) < 0 || (ip = create(path, I_DEVICE, major, minor)) == 0) {
-        end_op();
+        end_op(); //* 事务结束
         return -1;
     }
     iunlockput(ip);
-    end_op();
+    end_op(); //* 事务结束
     return 0;
 }
 
@@ -451,20 +463,20 @@ uint64 sys_chdir(void)
     struct minode* ip;
     struct proc* p = myproc();
 
-    begin_op();
+    begin_op(); //* 事务开始
     if (argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0) {
-        end_op();
+        end_op(); //* 事务结束
         return -1;
     }
     ilock(ip);
     if (ip->type != I_DIR) {
         iunlockput(ip);
-        end_op();
+        end_op(); //* 事务结束
         return -1;
     }
     iunlock(ip);
     iput(p->cwd);
-    end_op();
+    end_op(); //* 事务结束
     p->cwd = ip;
     return 0;
 }

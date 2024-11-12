@@ -368,9 +368,9 @@ void exit(int status)
     }
 
     // 释放工作目录
-    begin_op();
+    begin_op(); //* 事务开始
     iput(p->cwd);
-    end_op();
+    end_op(); //* 事务结束
     p->cwd = 0;
 
     // 获取等待锁

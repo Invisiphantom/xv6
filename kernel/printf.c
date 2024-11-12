@@ -5,16 +5,15 @@
 #include <stdarg.h>
 
 #include "types.h"
+#include "riscv.h"
+#include "defs.h"
 #include "param.h"
 #include "spinlock.h"
 #include "sleeplock.h"
-#include "stat.h"
+#include "proc.h"
 #include "fs.h"
 #include "file.h"
 #include "memlayout.h"
-#include "riscv.h"
-#include "defs.h"
-#include "proc.h"
 
 volatile int panicked = 0;
 

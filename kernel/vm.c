@@ -4,7 +4,6 @@
 #include "elf.h"
 #include "riscv.h"
 #include "defs.h"
-#include "stat.h"
 #include "fs.h"
 
 // 内核页表
@@ -114,7 +113,7 @@ uint64 walkaddr(pagetable_t pagetable, uint64 va)
         return 0;
 
     // 返回va对应的最后一级页表项
-    pte = walk(pagetable, va, 0);
+    pte = walk(pagetable, va, false);
 
     // 确保页表项存在
     if (pte == 0)
@@ -158,7 +157,7 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     last = va + size - PGSIZE; // 末个虚拟页地址
     for (;;) {
         // 获取va对应的最后一级页表项 (如果不存在, 则逐级创建)
-        if ((pte = walk(pagetable, a, 1)) == 0)
+        if ((pte = walk(pagetable, a, true)) == 0)
             return -1;
 
         // 确保此页表项 未映射物理地址
@@ -192,7 +191,7 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     // 遍历所有va
     for (uint64 a = va; a < va + npages * PGSIZE; a += PGSIZE) {
         // 确保页表项存在
-        if ((pte = walk(pagetable, a, 0)) == 0)
+        if ((pte = walk(pagetable, a, false)) == 0)
             panic("uvmunmap: walk");
 
         // 确保页表项有效
@@ -335,7 +334,7 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
     for (i = 0; i < sz; i += PGSIZE) {
         // 确保页表项存在
-        if ((pte = walk(old, i, 0)) == 0)
+        if ((pte = walk(old, i, false)) == 0)
             panic("uvmcopy: pte should exist");
 
         // 确保页表项有效
@@ -373,7 +372,7 @@ void uvmclear(pagetable_t pagetable, uint64 va)
 {
     pte_t* pte;
 
-    pte = walk(pagetable, va, 0);
+    pte = walk(pagetable, va, false);
     if (pte == 0)
         panic("uvmclear");
     *pte &= ~PTE_U;
@@ -390,7 +389,7 @@ int copyout(pagetable_t pagetable, uint64 dstva, char* src, uint64 len)
         va0 = PGROUNDDOWN(dstva);
         if (va0 >= MAXVA)
             return -1;
-        pte = walk(pagetable, va0, 0);
+        pte = walk(pagetable, va0, false);
         if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 || (*pte & PTE_W) == 0)
             return -1;
         pa0 = PTE2PA(*pte);

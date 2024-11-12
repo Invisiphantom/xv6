@@ -1,3 +1,4 @@
+// clang-format off
 struct buf;
 struct context;
 struct file;
@@ -9,7 +10,8 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
-// bio.c
+// -------------------------------- bio.c --------------------------------
+
 void            binit(void);
 struct buf*     bread(uint dev, uint blockno);
 void            brelse(struct buf* b);
@@ -17,15 +19,18 @@ void            bwrite(struct buf* b);
 void            bpin(struct buf*);
 void            bunpin(struct buf*);
 
-// console.c
+// -------------------------------- console.c --------------------------------
+
 void            consoleinit(void);
 void            consoleintr(int);
 void            consputc(int);
 
-// exec.c
+// -------------------------------- exec.c --------------------------------
+
 int             exec(char*, char**);
 
-// file.c
+// -------------------------------- file.c --------------------------------
+
 struct file*    filealloc(void);
 void            fileclose(struct file*);
 struct file*    filedup(struct file*);
@@ -34,54 +39,68 @@ int             fileread(struct file*, uint64, int n);
 int             filestat(struct file*, uint64 addr);
 int             filewrite(struct file*, uint64, int n);
 
-// fs.c
-void            fsinit(int);
-int             dirlink(struct minode*, char*, uint);
-struct minode*   dirlookup(struct minode*, char*, uint*);
-struct minode*   ialloc(uint, short);
-struct minode*   idup(struct minode*);
-void            iinit();
-void            ilock(struct minode*);
-void            iput(struct minode*);
-void            iunlock(struct minode*);
-void            iunlockput(struct minode*);
-void            iupdate(struct minode*);
-int             namecmp(const char*, const char*);
-struct minode*   namei(char*);
-struct minode*   nameiparent(char*, char*);
-int             readi(struct minode* ip, int user_dst, uint64 dst, uint off, uint n);
-void            stati(struct minode*, struct stat*);
-int             writei(struct minode*, int, uint64, uint, uint);
-void            itrunc(struct minode*);
+// -------------------------------- fs.c --------------------------------
 
-// ramdisk.c
+void            fsinit(int dev);
+
+void            iinit();
+struct minode*  ialloc(uint dev, short type);
+
+void            ilock(struct minode* mip);
+void            iupdate(struct minode* mip);
+void            iunlock(struct minode* mip);
+
+struct minode*  idup(struct minode* mip);
+void            iput(struct minode* mip);
+void            iunlockput(struct minode* mip);
+
+void            itrunc(struct minode* mip);
+void            stati(struct minode* mip, struct stat* st);
+
+int             readi(struct minode* mip, int user_dst, uint64 dst, uint off, uint n);
+int             writei(struct minode* mip, int user_src, uint64 src, uint off, uint n);
+
+struct minode*  dirlookup(struct minode* mip, char* name, uint* poff);
+int             dirlink(struct minode* mip, char* name, uint inum);
+
+int             namecmp(const char* s1, const char* s2);
+struct minode*  namei(char* path);
+struct minode*  nameiparent(char* path, char* name);
+
+// -------------------------------- ramdisk.c --------------------------------
+
 void            ramdiskinit(void);
 void            ramdiskintr(void);
 void            ramdiskrw(struct buf*);
 
-// kalloc.c
+// -------------------------------- kalloc.c --------------------------------
+
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
 
-// log.c
+// -------------------------------- log.c --------------------------------
+
 void            initlog(int, struct superblock*);
 void            log_write(struct buf*);
 void            begin_op(void);
 void            end_op(void);
 
-// pipe.c
+// -------------------------------- pipe.c --------------------------------
+
 int             pipealloc(struct file**, struct file**);
 void            pipeclose(struct pipe*, int);
 int             piperead(struct pipe*, uint64, int);
 int             pipewrite(struct pipe*, uint64, int);
 
-// printf.c
+// -------------------------------- printf.c --------------------------------
+
 int            printf(char*, ...) __attribute__ ((format (printf, 1, 2)));
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
 
-// proc.c
+// -------------------------------- proc.c --------------------------------
+
 int             cpuid(void);
 void            exit(int);
 int             fork(void);
@@ -107,10 +126,12 @@ int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 
-// swtch.S
+// -------------------------------- swtch.S --------------------------------
+
 void            swtch(struct context*, struct context*);
 
-// spinlock.c
+// -------------------------------- spinlock.c --------------------------------
+
 void            acquire(struct spinlock*);
 int             holding(struct spinlock*);
 void            initlock(struct spinlock*, char*);
@@ -118,13 +139,15 @@ void            release(struct spinlock*);
 void            push_off(void);
 void            pop_off(void);
 
-// sleeplock.c
+// -------------------------------- sleeplock.c --------------------------------
+
 void            acquiresleep(struct sleeplock*);
 void            releasesleep(struct sleeplock*);
 int             holdingsleep(struct sleeplock*);
 void            initsleeplock(struct sleeplock*, char*);
 
-// string.c
+// -------------------------------- string.c --------------------------------
+
 int             memcmp(const void*, const void*, uint);
 void*           memmove(void* dst, const void* src, uint n);
 void*           memset(void*, int, uint);
@@ -133,7 +156,8 @@ int             strlen(const char*);
 int             strncmp(const char*, const char*, uint);
 char*           strncpy(char*, const char*, int);
 
-// syscall.c
+// -------------------------------- syscall.c --------------------------------
+
 void            argint(int, int*);
 int             argstr(int, char*, int);
 void            argaddr(int, uint64 *);
@@ -141,20 +165,23 @@ int             fetchstr(uint64, char*, int);
 int             fetchaddr(uint64, uint64*);
 void            syscall();
 
-// trap.c
+// -------------------------------- trap.c --------------------------------
+
 extern uint     ticks;
 void            trapinit(void);
 void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
 
-// uart.c
+// -------------------------------- uart.c --------------------------------
+
 void            uartinit(void);
 void            uartintr(void);
 void            uartputc(int);
 void            uartputc_sync(int);
 
-// vm.c
+// -------------------------------- vm.c --------------------------------
+
 void            kvminit(void);
 void            kvminithart(void);
 void            kvmmap(pagetable_t, uint64, uint64, uint64, int);
@@ -167,22 +194,24 @@ int             uvmcopy(pagetable_t, pagetable_t, uint64);
 void            uvmfree(pagetable_t, uint64);
 void            uvmunmap(pagetable_t, uint64, uint64, int);
 void            uvmclear(pagetable_t, uint64);
-pte_t *         walk(pagetable_t, uint64, int);
-uint64          walkaddr(pagetable_t, uint64);
-int             copyout(pagetable_t, uint64, char *, uint64);
-int             copyin(pagetable_t, char *, uint64, uint64);
-int             copyinstr(pagetable_t, char *, uint64, uint64);
+pte_t *         walk(pagetable_t pagetable, uint64 va, int alloc);
+uint64          walkaddr(pagetable_t pagetable, uint64 va);
+int             copyout(pagetable_t pagetable, uint64 dstva, char* src, uint64 len);
+int             copyin(pagetable_t pagetable, char* dst, uint64 srcva, uint64 len);
+int             copyinstr(pagetable_t pagetable, char* dst, uint64 srcva, uint64 max);
 
-// plic.c
+// -------------------------------- plic.c --------------------------------
+
 void            plicinit(void);
 void            plicinithart(void);
 int             plic_claim(void);
 void            plic_complete(int);
 
-// virtio_disk.c
+// -------------------------------- virtio_disk.c --------------------------------
+
 void            virtio_disk_init(void);
-void            virtio_disk_rw(struct buf *, int);
+void            virtio_disk_rw(struct buf* b, int write);
 void            virtio_disk_intr(void);
 
-// 返回定长数组的元素个数
+// 返回定长数组的元素个数 
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

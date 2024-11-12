@@ -7,23 +7,27 @@
 //  + BCache: LRU缓存链环 (buf.h bio.c)
 //  + Log: 两步提交的日志系统 (log.c)
 //  + Inode Dir Path: 硬盘文件系统实现 (stat.h fs.h fs.c)
-//  + File SysCall: 文件系统调用 (file.h file.c pipe.c sysfile.c)
+//  + Pipe: 管道实现 (pipe.c)
+//  + File Descriptor: 文件描述符 (file.h file.c)
+//  + File SysCall: 文件系统调用 (fcntl.h sysfile.c)
 
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
 // [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
 
-typedef enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } FD_type;
-struct file {
-    FD_type type;      // 文件类型
-    int ref;           // 引用计数
-    char readable;     // 是否可读
-    char writable;     // 是否可写
-    struct pipe* pipe; // 管道信息
-    struct minode* ip; // 内存inode信息
-    uint off;          // 文件描述符偏移量
-    short major;       // 主设备号
-};
+typedef struct file {
+    // 文件描述符类型
+    enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
+
+    int ref;       // 引用计数
+    char readable; // 是否可读
+    char writable; // 是否可写
+
+    uint off;           // 偏移量
+    short major;        // 主设备号
+    struct minode* mip; // 索引信息
+    struct pipe* pipe;  // 管道信息
+} file;
 
 #define major(dev) ((dev) >> 16 & 0xFFFF)     // 获取主设备号 (高16位)
 #define minor(dev) ((dev) & 0xFFFF)           // 获取次设备号 (低16位)
@@ -47,13 +51,13 @@ typedef struct minode {
     uint addrs[NDIRECT + 1]; // 文件块号 (直接块+间接引导块)
 } minode;
 
-// 将主设备号映射到设备的读写函数
+// 终端设备
 struct devsw {
-    int (*read)(int, uint64, int);
-    int (*write)(int, uint64, int);
+    int (*read)(int user_dst, uint64 dst, int n);  // consoleread
+    int (*write)(int user_src, uint64 src, int n); // consolewrite
 };
 
 extern struct devsw devsw[];
 
-// 终端的主设备号 1
+// 终端的主设备号 (1)
 #define CONSOLE 1

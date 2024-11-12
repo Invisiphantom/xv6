@@ -1,6 +1,7 @@
 #include "types.h"
 
 enum { I_FREE = 0, I_DIR, I_FILE, I_DEVICE };
+
 struct stat {
     uint dev;    // 设备号
     uint inum;   // 索引编号

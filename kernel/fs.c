@@ -7,7 +7,9 @@
 //  + BCache: LRU缓存链环 (buf.h bio.c)
 //  + Log: 两步提交的日志系统 (log.c)
 //  + Inode Dir Path: 硬盘文件系统实现 (stat.h fs.h fs.c)
-//  + File SysCall: 文件系统调用 (file.h file.c pipe.c sysfile.c)
+//  + Pipe: 管道实现 (pipe.c)
+//  + File Descriptor: 文件描述符 (file.h file.c)
+//  + File SysCall: 文件系统调用 (fcntl.h sysfile.c)
 
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
@@ -18,11 +20,11 @@
 #include "defs.h"
 #include "param.h"
 #include "spinlock.h"
-#include "proc.h"
 #include "sleeplock.h"
+#include "proc.h"
+#include "buf.h"
 #include "stat.h"
 #include "fs.h"
-#include "buf.h"
 #include "file.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -194,7 +196,7 @@ void ilock(minode* mip)
         buf* bp = bread(mip->dev, IBLOCK(mip->inum, sb)); //* 锁定索引块
         dinode* dip = (struct dinode*)bp->data + mip->inum % IPB;
 
-        // 索引项数据: 硬盘=>内存
+        // 索引项数据: 内存<==硬盘
         mip->type = dip->type;   // 索引类型 (stat.h)
         mip->major = dip->major; // 主设备号
         mip->minor = dip->minor; // 次设备号
@@ -355,7 +357,7 @@ void itrunc(minode* mip)
 
 // ----------------------------------------------------------------
 
-// 文件信息: inode=>stat
+// 索引信息: inode=>stat
 void stati(minode* mip, struct stat* st)
 {
     st->dev = mip->dev;     // 设备号
@@ -404,7 +406,6 @@ int readi(minode* mip, int user_dst, uint64 dst, uint off, uint n)
 // 写入文件内容 (需持有inode锁)
 int writei(minode* mip, int user_src, uint64 src, uint off, uint n)
 {
-
     // 确保偏移量在文件范围内 并且不会溢出
     if (off > mip->size || off + n < off)
         return -1;
@@ -421,7 +422,7 @@ int writei(minode* mip, int user_src, uint64 src, uint off, uint n)
         // 块内最大写入长度
         max_len = min(n - total, BSIZE - off % BSIZE);
 
-        // 文件内容: src=>文件块
+        // 文件内容: 文件块<==src
         if (either_copyin(bp->data + (off % BSIZE), user_src, src, max_len) == -1) {
             brelse(bp);
             break;

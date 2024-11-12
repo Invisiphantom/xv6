@@ -4,7 +4,6 @@
 #include "param.h"
 #include "spinlock.h"
 #include "sleeplock.h"
-#include "stat.h"
 #include "fs.h"
 #include "file.h"
 #include "memlayout.h"
@@ -53,7 +52,6 @@ int consolewrite(int user_src, uint64 src, int n)
 }
 
 // 终端设备的读函数 devsw[CONSOLE].read
-// <sysfile.c>sys_read() -> <file.c>fileread() 调用
 int consoleread(int user_dst, uint64 dst, int n)
 {
     // 记录期望读取的字符数

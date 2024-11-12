@@ -1,12 +1,28 @@
+
+// 文件系统实现:
+//  + UART: 串口输入输出 (printf.c console.c uart.c)
+//  -------------------------------------------------
+//  + FS.img: 文件系统映像 (mkfs.c)
+//  + VirtIO: 虚拟硬盘驱动 (virtio.h virtio_disk.c)
+//  + BCache: LRU缓存链环 (buf.h bio.c)
+//  + Log: 两步提交的日志系统 (log.c)
+//  + Inode Dir Path: 硬盘文件系统实现 (stat.h fs.h fs.c)
+//  + Pipe: 管道实现 (pipe.c)
+//  + File Descriptor: 文件描述符 (file.h file.c)
+//  + File SysCall: 文件系统调用 (fcntl.h sysfile.c)
+
+// 硬盘布局
+// [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
+// [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
+
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
 #include "param.h"
 #include "spinlock.h"
-#include "proc.h"
-#include "stat.h"
-#include "fs.h"
 #include "sleeplock.h"
+#include "proc.h"
+#include "fs.h"
 #include "file.h"
 
 #define PIPESIZE 512
@@ -14,115 +30,124 @@
 struct pipe {
     struct spinlock lock;
     char data[PIPESIZE];
-    uint nread;    // number of bytes read
-    uint nwrite;   // number of bytes written
-    int readopen;  // read fd is still open
-    int writeopen; // write fd is still open
+
+    int readopen;  // 读端是否打开
+    int writeopen; // 写端是否打开
+
+    uint nread;  // 读位置
+    uint nwrite; // 写位置
 };
 
-int pipealloc(struct file** f0, struct file** f1)
+int pipealloc(file** rf, file** wf)
 {
-    struct pipe* pi;
+    *rf = *wf = NULL;
+    struct pipe* pi = NULL;
 
-    pi = 0;
-    *f0 = *f1 = 0;
-    if ((*f0 = filealloc()) == 0 || (*f1 = filealloc()) == 0)
-        goto bad;
-    if ((pi = (struct pipe*)kalloc()) == 0)
-        goto bad;
-    pi->readopen = 1;
-    pi->writeopen = 1;
-    pi->nwrite = 0;
-    pi->nread = 0;
+    if ((*rf = filealloc()) == NULL || (*wf = filealloc()) == NULL)
+        panic("pipealloc");
+    if ((pi = (struct pipe*)kalloc()) == NULL)
+        panic("pipealloc");
+
     initlock(&pi->lock, "pipe");
-    (*f0)->type = FD_PIPE;
-    (*f0)->readable = 1;
-    (*f0)->writable = 0;
-    (*f0)->pipe = pi;
-    (*f1)->type = FD_PIPE;
-    (*f1)->readable = 0;
-    (*f1)->writable = 1;
-    (*f1)->pipe = pi;
-    return 0;
+    pi->readopen = true;
+    pi->writeopen = true;
+    pi->nread = 0;
+    pi->nwrite = 0;
 
-bad:
-    if (pi)
-        kfree((char*)pi);
-    if (*f0)
-        fileclose(*f0);
-    if (*f1)
-        fileclose(*f1);
-    return -1;
+    (*rf)->type = FD_PIPE;
+    (*rf)->readable = 1;
+    (*rf)->writable = 0;
+    (*rf)->pipe = pi;
+
+    (*wf)->type = FD_PIPE;
+    (*wf)->readable = 0;
+    (*wf)->writable = 1;
+    (*wf)->pipe = pi;
+    return 0;
 }
 
+// 关闭管道的读端或写端
 void pipeclose(struct pipe* pi, int writable)
 {
-    acquire(&pi->lock);
+    acquire(&pi->lock); //* 获取管道锁
+
     if (writable) {
-        pi->writeopen = 0;
+        pi->writeopen = false;
         wakeup(&pi->nread);
     } else {
-        pi->readopen = 0;
+        pi->readopen = false;
         wakeup(&pi->nwrite);
     }
-    if (pi->readopen == 0 && pi->writeopen == 0) {
-        release(&pi->lock);
-        kfree((char*)pi);
+
+    if (pi->readopen == false && pi->writeopen == false) {
+        release(&pi->lock); //* 释放管道锁
+        kfree((char*)pi);   // 释放管道内存
     } else
-        release(&pi->lock);
+        release(&pi->lock); //* 释放管道锁
 }
 
+// 从管道读取数据
 int pipewrite(struct pipe* pi, uint64 addr, int n)
 {
     int i = 0;
     struct proc* pr = myproc();
 
-    acquire(&pi->lock);
+    acquire(&pi->lock); //* 获取管道锁
+
     while (i < n) {
-        if (pi->readopen == 0 || killed(pr)) {
-            release(&pi->lock);
+        // 如果读端已关闭 或者进程有终止标志
+        if (pi->readopen == false || killed(pr)) {
+            release(&pi->lock); //* 释放管道锁
             return -1;
         }
-        if (pi->nwrite == pi->nread + PIPESIZE) { // DOC: pipewrite-full
-            wakeup(&pi->nread);
-            sleep(&pi->nwrite, &pi->lock);
-        } else {
-            char ch;
+
+        // 如果管道已满
+        if (pi->nwrite == pi->nread + PIPESIZE) {
+            wakeup(&pi->nread);            // 唤醒读端
+            sleep(&pi->nwrite, &pi->lock); //* 休眠写端
+        }
+
+        else {
+            char ch; // 字符: 内核空间<==用户空间
             if (copyin(pr->pagetable, &ch, addr + i, 1) == -1)
                 break;
-            pi->data[pi->nwrite++ % PIPESIZE] = ch;
+            pi->data[pi->nwrite % PIPESIZE] = ch;
+            pi->nwrite++;
             i++;
         }
     }
-    wakeup(&pi->nread);
-    release(&pi->lock);
 
+    wakeup(&pi->nread); // 唤醒读端
+    release(&pi->lock); //* 释放管道锁
     return i;
 }
 
-// 从管道pi中读取n个字节到用户空间addr
+// 向管道写入数据
 int piperead(struct pipe* pi, uint64 addr, int n)
 {
-    int i;
     struct proc* pr = myproc();
-    char ch;
+    acquire(&pi->lock); //* 获取管道锁
 
-    acquire(&pi->lock);
-    while (pi->nread == pi->nwrite && pi->writeopen) { // DOC: pipe-empty
+    // 休眠等待写端填充数据
+    while (pi->nread == pi->nwrite && pi->writeopen) {
         if (killed(pr)) {
-            release(&pi->lock);
+            release(&pi->lock); //* 释放管道锁
             return -1;
         }
-        sleep(&pi->nread, &pi->lock); // DOC: piperead-sleep
+        sleep(&pi->nread, &pi->lock); //* 休眠等待写入
     }
-    for (i = 0; i < n; i++) { // DOC: piperead-copy
+
+    int i;
+    for (i = 0; i < n; i++) {
         if (pi->nread == pi->nwrite)
             break;
-        ch = pi->data[pi->nread++ % PIPESIZE];
+        char ch = pi->data[pi->nread % PIPESIZE];
+        pi->nread++; // 字符: 用户空间<==内核空间
         if (copyout(pr->pagetable, addr + i, &ch, 1) == -1)
             break;
     }
-    wakeup(&pi->nwrite); // DOC: piperead-wakeup
-    release(&pi->lock);
+
+    wakeup(&pi->nwrite); // 唤醒写端
+    release(&pi->lock);  //* 释放管道锁
     return i;
 }

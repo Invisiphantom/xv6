@@ -20,6 +20,8 @@
         "riscv.h": "c",
         "fcntl.h": "c",
         "cstdlib": "c",
-        "spinlock.h": "c"
+        "spinlock.h": "c",
+        "sleeplock.h": "c",
+        "typeinfo": "c"
     }
 }

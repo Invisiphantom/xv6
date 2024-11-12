@@ -170,7 +170,9 @@ mv compile_commands.json .vscode/
 //  + BCache: LRU缓存链环 (buf.h bio.c)
 //  + Log: 两步提交的日志系统 (log.c)
 //  + Inode Dir Path: 硬盘文件系统实现 (stat.h fs.h fs.c)
-//  + File SysCall: 文件系统调用 (file.h file.c pipe.c sysfile.c)
+//  + Pipe: 管道实现 (pipe.c)
+//  + File Descriptor: 文件描述符 (file.h file.c)
+//  + File SysCall: 文件系统调用 (fcntl.h sysfile.c)
 
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
