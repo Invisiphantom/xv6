@@ -1,5 +1,6 @@
 #include "types.h"
 
+// 索引类型
 enum { I_FREE = 0, I_DIR, I_FILE, I_DEVICE };
 
 struct stat {

@@ -12,6 +12,6 @@
 #define MAXOPBLOCKS 10            // 文件系统单次可写入的最大块数
 #define LOGSIZE (MAXOPBLOCKS * 3) // 硬盘中的最大日志块数
 #define NBUF (MAXOPBLOCKS * 3)    // size of disk block cache
-#define FSSIZE 2000               // size of file system in blocks
+#define FSSIZE 2000               // 文件系统总块数
 #define MAXPATH 128               // maximum file path name
 #define USERSTACK 1               // user stack pages

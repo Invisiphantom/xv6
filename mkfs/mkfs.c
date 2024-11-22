@@ -37,12 +37,12 @@
 // 硬盘布局
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
 // [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
-#define NINODES 200                   // 索引结点的最大数量
-int nbitmap = FSSIZE / BPB + 1;       // 需要的位图块数量 (1)
-int ninodeblocks = NINODES / IPB + 1; // 需要的索引块数量 (13)
-int nlog = LOGSIZE;                   // 需要的日志块数量 (30)
-int nmeta;                            // 元数据块数量 (46)
-int nblocks;                          // 空闲数据块数量 (1954)
+#define NINODES 200                    // 最大索引数量
+uint nbitmap = FSSIZE / BPB + 1;       // 需要的位图块数量 (1)
+uint ninodeblocks = NINODES / IPB + 1; // 需要的索引块数量 (13)
+uint nlog = LOGSIZE;                   // 需要的日志块数量 (30)
+uint nmeta;                            // 元数据块数量 (46)
+uint nblocks;                          // 空闲数据块数量 (1954)
 
 int fsfd;             // fs.img 文件描述符
 struct superblock sb; // 超级块结构体
@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
     if (fsfd < 0)
         die(argv[1]);
 
-    // 元数据块数量 (46) (boot, sb, nlog, inode, bitmap)
+    // 元数据块数量 (46) (boot, sb, log, inode, bitmap)
     nmeta = 1 + 1 + nlog + ninodeblocks + nbitmap;
     nblocks = FSSIZE - nmeta; // 空闲数据块数量 (1954)
 
@@ -117,15 +117,16 @@ int main(int argc, char* argv[])
     sb.inodestart = xint(2 + nlog);               // 第一个索引块的块号 (32)
     sb.bmapstart = xint(2 + nlog + ninodeblocks); // 第一个位图块的块号 (234)
 
-    printf("total=%d\n"
-           "|--nmeta=%d\n"
-           "|  |--boot=1\n"
-           "|  |--sb=1\n"
-           "|  |--nlog=%u\n"
-           "|  |--ninodeblocks=%u\n"
-           "|  └--nbitmap=%u\n"
-           "└--nblocks=%d\n\n",
-        FSSIZE, nmeta, nlog, ninodeblocks, nbitmap, nblocks);
+    printf("total=%u\n"
+           "|--nmeta=%u\n"
+           "|  |--[0] boot=1\n"
+           "|  |--[1] sb=1\n"
+           "|  |--[%u-%u] nlog=%u\n"
+           "|  |--[%u-%u] ninodeblocks=%u\n"
+           "|  └--[%u] nbitmap=%u\n"
+           "└--[%u-%u] nblocks=%u\n\n",
+        FSSIZE, nmeta, 2, 2 + nlog - 1, nlog, 2 + nlog, 2 + nlog + ninodeblocks - 1, ninodeblocks,
+        2 + nlog + ninodeblocks, nbitmap, 2 + nlog + ninodeblocks + 1, FSSIZE - 1, nblocks);
 
     // 第一个可分配的数据块
     freeblock = nmeta;
@@ -150,7 +151,7 @@ int main(int argc, char* argv[])
     strcpy(de.name, ".");
     iappend(rootino, &de, sizeof(de));
 
-    // 向rootino追加 dirent{rootino, ".."}
+    // 向根目录追加 dirent{rootino, ".."}
     memset(&de, 0, sizeof(de));
     de.inum = xshort(rootino);
     strcpy(de.name, "..");
@@ -183,7 +184,7 @@ int main(int argc, char* argv[])
         // 分配新的文件inode
         uint inum = ialloc(I_FILE);
 
-        // 向根目录inode追加 dirent{inum, shortname}
+        // 向根目录追加 dirent{inum, shortname}
         memset(&de, 0, sizeof(de));
         de.inum = xshort(inum);
         strncpy(de.name, shortname, DIRSIZ);
@@ -261,7 +262,7 @@ void rinode(uint inum, dinode* ip)
     rsect(bn, buf);
 
     // 解析出对应索引项
-    dinode* dip = ((struct dinode*)buf) + (inum % IPB);
+    dinode* dip = ((dinode*)buf) + (inum % IPB);
     *ip = *dip;
 }
 
@@ -275,7 +276,7 @@ void winode(uint inum, dinode* ip)
     rsect(bn, buf);
 
     // 将索引写入缓冲区
-    dinode* dip = ((struct dinode*)buf) + (inum % IPB);
+    dinode* dip = ((dinode*)buf) + (inum % IPB);
     *dip = *ip;
 
     // 写回缓冲区
@@ -287,21 +288,20 @@ void winode(uint inum, dinode* ip)
 void iappend(uint inum, void* xp, int n)
 {
     char* p = (char*)xp;
-    uint fbn, off, n1;
-    struct dinode din;        // 硬盘inode
     char buf[BSIZE];          // 读写缓冲区
     uint indirect[NINDIRECT]; // 间接索引块缓冲区
-    uint x;                   // 可供写入的文件块
+    uint x;
 
-    // 读取inode信息到din
+    // 读取索引信息
+    struct dinode din;
     rinode(inum, &din);
 
     // inode现有文件的总大小
-    off = xint(din.size);
+    uint off = xint(din.size);
 
     while (n > 0) {
         // 最后一个文件块编号
-        fbn = off / BSIZE;
+        uint fbn = off / BSIZE;
         assert(fbn < MAXFILE);
 
         // 处理直接块
@@ -311,7 +311,7 @@ void iappend(uint inum, void* xp, int n)
                 din.addrs[fbn] = xint(freeblock);
                 freeblock++;
             }
-            x = xint(din.addrs[fbn]); // 文件末块地址
+            x = xint(din.addrs[fbn]); // 记录块号
         }
 
         // 处理间接块
@@ -333,11 +333,11 @@ void iappend(uint inum, void* xp, int n)
                 // 写回更新间接索引块
                 wsect(xint(din.addrs[NDIRECT]), (char*)indirect);
             }
-            x = xint(indirect[fbn - NDIRECT]); // 文件末块地址
+            x = xint(indirect[fbn - NDIRECT]); // 记录块号
         }
 
         // 计算可以写入到当前块x的数据大小
-        n1 = min(n, (fbn + 1) * BSIZE - off);
+        uint n1 = min(n, (fbn + 1) * BSIZE - off);
 
         // 将p[n1]写入末尾块x
         rsect(x, buf);

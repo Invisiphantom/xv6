@@ -57,8 +57,8 @@ void binit(void)
     }
 }
 
-// 锁定硬盘块到缓存
-struct buf* bread(uint dev, uint blockno)
+// 从链环中获取缓存块
+struct buf* bget(uint dev, uint blockno)
 {
     buf* b;
 
@@ -69,29 +69,36 @@ struct buf* bread(uint dev, uint blockno)
         if (b->dev == dev && b->blockno == blockno) {
             b->refcnt++;           // 增加引用计数
             release(&bcache.lock); //* 释放缓存锁
-
-            acquiresleep(&b->lock); //** 获取块锁 (休眠)
-            break;
+            return b;
         }
     }
 
     // 如果没找到 则从尾部找闲置LRU缓存
-    if (b == &bcache.head)
-        for (b = bcache.head.prev; b != &bcache.head; b = b->prev) {
-            if (b->refcnt == 0) {
-                b->dev = dev;          // 设备号
-                b->blockno = blockno;  // 对应块号
-                b->refcnt = 1;         // 引用计数 (1)
-                release(&bcache.lock); //* 释放缓存锁
-
-                acquiresleep(&b->lock);   //** 获取块锁 (休眠)
-                virtio_disk_rw(b, false); // 从硬盘加载数据
-                break;
-            }
+    for (b = bcache.head.prev; b != &bcache.head; b = b->prev) {
+        if (b->refcnt == 0) {
+            b->dev = dev;          // 设备号
+            b->blockno = blockno;  // 块号
+            b->valid = false;      // 无效位
+            b->refcnt = 1;         // 引用计数
+            release(&bcache.lock); //* 释放缓存锁
+            return b;
         }
+    }
+    panic("bget: no buffers");
+}
 
-    if (b == &bcache.head)
-        panic("bget: no buffers");
+// 锁定硬盘块到缓存
+buf* bread(uint dev, uint blockno)
+{
+    buf* b = bget(dev, blockno);
+    acquiresleep(&b->lock); //* 获取块锁
+
+    // 如果块无效 则读取数据
+    if (!b->valid) {
+        virtio_disk_rw(b, 0); // 读取数据 (休眠)
+        b->valid = true;      // 置有效位
+    }
+
     return b;
 }
 

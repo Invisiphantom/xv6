@@ -36,11 +36,11 @@ struct logheader {
 };
 
 struct log {
-    struct spinlock lock; // 自旋锁
-    int start;            // 日志头块的块号 (2)
-    int outstanding;      // 当前文件操作数量
-    int committing;       // 是否正在执行提交
+    struct spinlock lock; // 日志锁
     int dev;              // 设备编号
+    int start;            // 日志头块的块号 (2)
+    int outstanding;      // 当前事务嵌套数量
+    int committing;       // 是否正在执行提交
     struct logheader lh;  // 日志头
 } log;
 
@@ -55,8 +55,8 @@ void initlog(int dev, struct superblock* sb)
         panic("initlog: too big logheader");
 
     initlock(&log.lock, "log"); // 初始化日志锁
-    log.start = sb->logstart;   // 日志头块的块号 (2)
     log.dev = dev;              // 所属设备号
+    log.start = sb->logstart;   // 日志头块的块号 (2)
 
     // 恢复上次停机时的日志块
     recover_from_log();
@@ -71,11 +71,11 @@ static void install_trans(int recovering)
         struct buf* lbuf = bread(log.dev, (log.start + 1) + tail);
         struct buf* dbuf = bread(log.dev, log.lh.block[tail]);
 
-        // 日志快->目标块 并写回
+        // 日志块->目标块 并写回
         memmove(dbuf->data, lbuf->data, BSIZE);
         bwrite(dbuf);
 
-        //** 如果不是重启恢复, 则减少引用
+        // 如果不是重启恢复, 则减少引用 (取消日志绑定)
         if (recovering == false)
             bunpin(dbuf);
 
@@ -139,9 +139,9 @@ static void write_log(void)
         struct buf* lbuf = bread(log.dev, (log.start + 1) + tail);
         struct buf* dbuf = bread(log.dev, log.lh.block[tail]);
 
-        // 目标块->日志块 并写回
+        // 日志块<==目标块 并写回
         memmove(lbuf->data, dbuf->data, BSIZE);
-        bwrite(lbuf);
+        bwrite(lbuf); // (休眠)
 
         //* 释放日志块和目标块
         brelse(dbuf);
@@ -162,6 +162,8 @@ static void commit()
     }
 }
 
+// ----------------------------------------------------------------
+
 // 开始文件事务
 void begin_op(void)
 {
@@ -176,7 +178,7 @@ void begin_op(void)
             sleep(&log, &log.lock);
 
         else {
-            log.outstanding++;  // 增加当前文件操作数
+            log.outstanding++;  // 增加当前事务嵌套数
             release(&log.lock); //* 释放日志锁
             break;
         }
@@ -190,7 +192,7 @@ void end_op(void)
 
     acquire(&log.lock); //* 获取日志锁
 
-    // 减少当前文件操作数
+    // 减少当前事务嵌套数
     log.outstanding--;
 
     // 确保现在没有提交
@@ -209,6 +211,8 @@ void end_op(void)
     release(&log.lock); //* 释放日志锁
 
     if (do_commit == true) {
+        // <log.committing=true>保证不会开始新的事务
+        // commit会发生硬盘阻塞 不能持有锁
         commit(); // (内存-目标块)=>(硬盘-日志块)=>(硬盘-目标块)
 
         acquire(&log.lock);     //* 获取日志锁
@@ -220,7 +224,7 @@ void end_op(void)
 
 // ----------------------------------------------------------------
 
-// 用log_write来代替直接写入硬盘的bwrite
+// 用log_write来代替直接写入硬盘的bwrite (需要持有块锁)
 void log_write(struct buf* b)
 {
     acquire(&log.lock); //* 获取日志锁

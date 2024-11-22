@@ -272,11 +272,11 @@ void virtio_disk_rw(struct buf* b, int write)
     disk.desc[idx[1]].next = idx[2];                  // 下一个描述符的索引
 
     // 配置 idx[2] 描述符
-    disk.info[idx[0]].status = 0xff; // 如果成功将清除此状态
+    disk.info[idx[0]].status = 0xff;                            // 如果成功将清除此状态
     disk.desc[idx[2]].addr = (uint64)&disk.info[idx[0]].status; // 状态结果的地址
     disk.desc[idx[2]].len = 1;                                  // 长度为1字节
-    disk.desc[idx[2]].flags = VRING_DESC_F_WRITE; // 将结果写入info.status
-    disk.desc[idx[2]].next = 0;                   // 指示没有下一个描述符
+    disk.desc[idx[2]].flags = VRING_DESC_F_WRITE;               // 将结果写入info.status
+    disk.desc[idx[2]].next = 0;                                 // 指示没有下一个描述符
 
     // virtio_disk_intr()
     b->disk = 1;             // 硬盘正在使用buf
@@ -296,9 +296,8 @@ void virtio_disk_rw(struct buf* b, int write)
     *R(VIRTIO_MMIO_QUEUE_NOTIFY) = 0;
 
     // 休眠等待硬盘中断 virtio_disk_intr() 通知请求已完成
-    while (b->disk == true) {
+    while (b->disk == true)
         sleep(b, &disk.vdisk_lock); //* 等待硬盘中断
-    }
 
     // 释放描述符
     disk.info[idx[0]].b = 0;
@@ -332,7 +331,7 @@ void virtio_disk_intr()
 
         struct buf* b = disk.info[id].b;
         b->disk = false; // 处理结束, 硬盘释放buf
-        wakeup(b);   // 唤醒正在等待该buf的进程
+        wakeup(b);       // 唤醒正在等待该buf的进程
 
         // 继续处理下一个请求
         disk.last_used_idx += 1;

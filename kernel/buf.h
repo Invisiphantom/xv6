@@ -1,6 +1,7 @@
 
 
 typedef struct buf {
+    int valid;      // 数据是否有效
     uint dev;       // 设备号
     uint blockno;   // 硬盘块号
     uint refcnt;    // 引用计数
