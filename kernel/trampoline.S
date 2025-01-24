@@ -82,6 +82,8 @@ userret:
         # trap.c->usertrapret(satp) 跳转到此处 (S-mode)
         # 参数 a0 = {Sv39, p->pagetable}
         # -exec x/20i $pc
+        # -exec b *0x0
+        # -exec b *0x3ffffff000
 
         # 切换到用户页表
         sfence.vma zero, zero

@@ -50,7 +50,7 @@ void procinit(void)
     for (p = proc; p < &proc[NPROC]; p++) {
         initlock(&p->lock, "proc");          // 初始化进程锁
         p->state = UNUSED;                   // 未使用状态
-        p->kstack = KSTACK((int)(p - proc)); // 内核栈的KVM地址
+        p->kstack = KSTACK((int)(p - proc)); // 内核栈的起始地址
     }
 }
 
@@ -102,7 +102,7 @@ static struct proc* allocproc(void)
     struct proc* p;
 
     for (p = proc; p < &proc[NPROC]; p++) {
-        acquire(&p->lock); // 获取进程锁
+        acquire(&p->lock); //* 获取进程锁
         if (p->state == UNUSED)
             goto found; // 找到空闲进程
         else
@@ -185,7 +185,7 @@ pagetable_t proc_pagetable(struct proc* p)
         return 0;
 
     // 映射 trampoline 代码段到最高用户虚拟地址 (用于stvec)
-    // va=TRAMPOLINE, pa=trampoline.S, size=PGSIZE, perm=内核可读可执行
+    // va=TRAMPOLINE, pa=trampoline, size=PGSIZE, perm=内核可读可执行
     if (mappages(pagetable, TRAMPOLINE, PGSIZE, (uint64)trampoline, PTE_R | PTE_X) < 0) {
         uvmfree(pagetable, 0);
         return 0;
@@ -193,8 +193,7 @@ pagetable_t proc_pagetable(struct proc* p)
 
     // 映射 p->trapframe 数据页到 TRAMPLINE 的相邻低地址
     // va=TRAPFRAME, pa=p->trapframe, size=PGSIZE, perm=内核可读可写
-    if (mappages(pagetable, TRAPFRAME, PGSIZE, (uint64)(p->trapframe), PTE_R | PTE_W)
-        < 0) {
+    if (mappages(pagetable, TRAPFRAME, PGSIZE, (uint64)(p->trapframe), PTE_R | PTE_W) < 0) {
         uvmunmap(pagetable, TRAMPOLINE, 1, 0);
         uvmfree(pagetable, 0);
         return 0;
@@ -213,10 +212,9 @@ void proc_freepagetable(pagetable_t pagetable, uint64 sz)
 
 // od -t xC user/initcode
 // 一段用户态程序, 调用exec("/init") <user/initcode.S>
-uchar initcode[] = { 0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00,
-    0x00, 0x93, 0x85, 0x35, 0x02, 0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00, 0x93,
-    0x08, 0x20, 0x00, 0x73, 0x00, 0x00, 0x00, 0xef, 0xf0, 0x9f, 0xff, 0x2f, 0x69, 0x6e,
-    0x69, 0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+uchar initcode[] = { 0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x35, 0x02,
+    0x93, 0x08, 0x70, 0x00, 0x73, 0x00, 0x00, 0x00, 0x93, 0x08, 0x20, 0x00, 0x73, 0x00, 0x00, 0x00, 0xef, 0xf0, 0x9f,
+    0xff, 0x2f, 0x69, 0x6e, 0x69, 0x74, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 // 初始化第一个用户进程
 void userinit(void)
@@ -363,7 +361,7 @@ void exit(int status)
         if (p->ofile[fd]) {
             struct file* f = p->ofile[fd];
             fileclose(f);
-            p->ofile[fd] = 0;
+            p->ofile[fd] = NULL;
         }
     }
 
@@ -418,10 +416,7 @@ int wait(uint64 addr)
                     pid = pp->pid;
 
                     // 从内核地址xstate 复制数据到 用户地址addr
-                    if (addr != 0
-                        && copyout(
-                               p->pagetable, addr, (char*)&pp->xstate, sizeof(pp->xstate))
-                            < 0) {
+                    if (addr != 0 && copyout(p->pagetable, addr, (char*)&pp->xstate, sizeof(pp->xstate)) < 0) {
                         release(&pp->lock);
                         release(&wait_lock);
                         return -1;
@@ -463,8 +458,7 @@ void scheduler(void)
         // 遍历寻找可运行进程
         int found = 0;
         for (p = proc; p < &proc[NPROC]; p++) {
-            // 获取进程锁
-            acquire(&p->lock); // *
+            acquire(&p->lock); //* 获取进程锁
 
             // 如果进程是RUNNABLE状态
             if (p->state == RUNNABLE) {
@@ -479,7 +473,7 @@ void scheduler(void)
                 c->proc = 0;
                 found = 1;
             }
-            release(&p->lock); // *
+            release(&p->lock); //* 释放进程锁
         }
 
         // 如果没有找到可运行的进程
@@ -510,9 +504,9 @@ void sched(void)
     if (intr_get())
         panic("sched interruptible");
 
-    intr_enable = mycpu()->intr_enable; // 暂存当前中断状态
+    intr_enable = mycpu()->intr_enable;    // 暂存当前中断状态
     swtch(&p->context, &mycpu()->context); // 保存当前进程上下文, 并切换到调度器上下文
-    mycpu()->intr_enable = intr_enable; // 恢复当前中断状态
+    mycpu()->intr_enable = intr_enable;    // 恢复当前中断状态
 }
 
 // 让出CPU, 并将当前进程状态设置为RUNNABLE

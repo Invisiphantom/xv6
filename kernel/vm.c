@@ -244,7 +244,7 @@ void uvmfirst(pagetable_t pagetable, uchar* initcode, uint sz)
     memmove(mem, initcode, sz);
 }
 
-// 增加进程的用户内存 oldsz->newsz (oldsz和newsz不需要页对齐)
+// 扩展进程的用户内存 oldsz->newsz (oldsz和newsz不需要页对齐)
 uint64 uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
 {
     char* mem;
@@ -366,8 +366,8 @@ err:
     return -1;
 }
 
-// mark a PTE invalid for user access.
-// used by exec for the user stack guard page.
+// 用于标记用户访问无效的PTE
+// 用于exec创建用户栈的保护页
 void uvmclear(pagetable_t pagetable, uint64 va)
 {
     pte_t* pte;

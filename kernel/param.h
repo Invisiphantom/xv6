@@ -14,4 +14,4 @@
 #define NBUF (MAXOPBLOCKS * 3)    // size of disk block cache
 #define FSSIZE 2000               // 文件系统总块数
 #define MAXPATH 128               // maximum file path name
-#define USERSTACK 1               // user stack pages
+#define USERSTACK 1               // 用户栈页数

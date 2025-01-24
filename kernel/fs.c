@@ -122,8 +122,8 @@ void iinit()
 
 static minode* iget(uint dev, uint inum);
 
-// 找到空闲的硬盘-索引项
-// 返回对应的内存-索引项 (暂时不加载数据)
+// 找到空闲的硬盘-索引项 (需要事务)
+// 返回对应的内存-索引项 (暂时不加载数据到内存)
 minode* ialloc(uint dev, short type)
 {
     // 遍历所有的硬盘-索引项
@@ -132,10 +132,11 @@ minode* ialloc(uint dev, short type)
         dinode* dip = (dinode*)bp->data + inum % IPB;
 
         // 如果找到空闲的硬盘-索引项
+        // TODO: 需要初始化清空inode硬盘块
         if (dip->type == I_FREE) {
             memset(dip, 0, sizeof(*dip)); // 清空数据
             dip->type = type;             // 索引类型
-            log_write(bp);                // 写回日志
+            log_write(bp);                // 日志写回
             brelse(bp);                   //* 释放索引块
 
             // 索引项条目: 硬盘=>内存 (暂时不加载数据)
@@ -157,6 +158,7 @@ static minode* iget(uint dev, uint inum)
 
     // 遍历内存-索引表 寻找对应索引项
     for (mip = &itable.inode[0]; mip < &itable.inode[NINODE]; mip++) {
+        // 如果索引项已在内存, 则增加引用计数
         if (mip->ref > 0 && mip->dev == dev && mip->inum == inum) {
             mip->ref++;            // 增加引用计数
             release(&itable.lock); //* 释放索引表锁
@@ -183,7 +185,7 @@ static minode* iget(uint dev, uint inum)
 
 // ----------------------------------------------------------------
 
-// 锁定内存-索引项
+// 锁定内存-索引项 (加载数据到内存)
 void ilock(minode* mip)
 {
     if (mip == NULL || mip->ref <= 0)
@@ -218,7 +220,7 @@ void iupdate(minode* mip)
     buf* bp = bread(mip->dev, IBLOCK(mip->inum, sb)); //* 锁定索引块
     dinode* dip = (dinode*)bp->data + mip->inum % IPB;
 
-    // 索引项数据: 内存=>硬盘
+    // 索引项数据: 硬盘<==内存
     dip->type = mip->type;   // 索引类型 (stat.h)
     dip->major = mip->major; // 主设备号
     dip->minor = mip->minor; // 次设备号
@@ -357,7 +359,7 @@ void itrunc(minode* mip)
 
 // ----------------------------------------------------------------
 
-// 索引信息: inode=>stat
+// 索引信息: stat<==minode
 void stati(minode* mip, struct stat* st)
 {
     st->dev = mip->dev;     // 设备号
@@ -373,22 +375,22 @@ void stati(minode* mip, struct stat* st)
 int readi(minode* mip, int user_dst, uint64 dst, uint off, uint n)
 {
     // 确保偏移量和长度合法
-    if (off >= mip->size || n <= 0)
+    if (off >= mip->size)
         return 0;
 
     // 截断读取长度到文件范围内
     if (off + n > mip->size)
         n = mip->size - off;
 
-    uint total, max_len;
+    uint total;
     for (total = 0; total < n;) {
         uint addr = bmap(mip, off / BSIZE); // 获取文件块
         buf* bp = bread(mip->dev, addr);    //* 锁定文件块
 
         // 块内最大读取长度
-        max_len = min(n - total, BSIZE - off % BSIZE);
+        uint max_len = min(n - total, BSIZE - off % BSIZE);
 
-        // 文件内容: 文件块=>dst
+        // 文件内容: dst<==文件块
         if (either_copyout(user_dst, dst, bp->data + (off % BSIZE), max_len) == -1) {
             brelse(bp); //* 释放文件块
             return -1;
@@ -414,13 +416,13 @@ int writei(minode* mip, int user_src, uint64 src, uint off, uint n)
     if (off + n > MAXFILE * BSIZE)
         return -1;
 
-    uint total, max_len;
+    uint total;
     for (total = 0; total < n;) {
         uint addr = bmap(mip, off / BSIZE); // 获取文件块
         buf* bp = bread(mip->dev, addr);    //* 锁定文件块
 
         // 块内最大写入长度
-        max_len = min(n - total, BSIZE - off % BSIZE);
+        uint max_len = min(n - total, BSIZE - off % BSIZE);
 
         // 文件内容: 文件块<==src
         if (either_copyin(bp->data + (off % BSIZE), user_src, src, max_len) == -1) {
@@ -477,7 +479,7 @@ minode* dirlookup(minode* dp, char* name, uint* poff)
     return NULL;
 }
 
-// 向目录中写入文件项
+// 向目录中添加文件项
 int dirlink(minode* dp, char* name, uint inum)
 {
     minode* mip; // 确保此时目录中不存在此文件项
@@ -489,7 +491,7 @@ int dirlink(minode* dp, char* name, uint inum)
     uint off;
     dirent de;
 
-    // 寻找空文件项 如果没有则返回dp->size
+    // 寻找空文件项 如果没找到 则off=dp->size
     for (off = 0; off < dp->size; off += sizeof(dirent)) {
         if (readi(dp, false, (uint64)&de, off, sizeof(de)) != sizeof(de))
             panic("dirlink read");
@@ -574,7 +576,7 @@ static minode* namex(char* path, int parent, char* name)
 
         // 查找下一级路径元素
         minode* next = dirlookup(mip, name, 0);
-        if (next == NULL) {
+        if (next == 0) {
             iunlockput(mip); //* 释放索引项 (唤醒 减引用)
             return 0;
         }

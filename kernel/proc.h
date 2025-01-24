@@ -4,7 +4,7 @@ struct context {
     uint64 ra; // 函数返回地址(Return address)
     uint64 sp; // 进程栈指针(Stack pointer)
 
-    // 调用者保存寄存器
+    // 被调用者保存寄存器
     uint64 s0;
     uint64 s1;
     uint64 s2;
@@ -36,6 +36,7 @@ struct trapframe {
     /*  16 */ uint64 kernel_trap;   // 函数地址usertrap()
     /*  24 */ uint64 epc;           // 保存用户中断处PC
     /*  32 */ uint64 kernel_hartid; // 保存CPU的ID
+
     /*  40 */ uint64 ra;
     /*  48 */ uint64 sp;
     /*  56 */ uint64 gp;

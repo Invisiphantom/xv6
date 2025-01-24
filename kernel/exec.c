@@ -19,147 +19,170 @@ int flags2perm(int flags)
     return perm;
 }
 
-// initcode->usys.S 执行 exec(init, argv) 跳转到此处 (S-mode)
+// int exec(char *file, char *argv[])
 int exec(char* path, char** argv)
 {
-    char *s, *last;
-    int i, off;
-    uint64 argc, sz = 0, sp, ustack[MAXARG], stackbase;
-    struct elfhdr elf;
-    struct minode* ip;
-    struct proghdr ph;
-    pagetable_t pagetable = 0, oldpagetable;
-    struct proc* p = myproc();
+    uint64 sz = 0, sp, stackbase;
+    pagetable_t pagetable = NULL;
 
     begin_op(); //* 事务开始
 
-    if ((ip = namei(path)) == 0) {
+    // 获取路径对应inode
+    struct minode* mip;
+    if ((mip = namei(path)) == 0) {
         end_op(); //* 事务结束
         return -1;
     }
-    ilock(ip);
 
-    // Check ELF header
-    if (readi(ip, false, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
+    ilock(mip); //** 获取inode锁
+
+    // 读取并检查ELF文件头
+    struct elfhdr elf;
+    if (readi(mip, false, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
         goto bad;
-
     if (elf.magic != ELF_MAGIC)
         goto bad;
 
+    // 创建一个新的用户页表
+    struct proc* p = myproc();
     if ((pagetable = proc_pagetable(p)) == 0)
         goto bad;
 
-    // Load program into memory.
-    for (i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph)) {
-        if (readi(ip, false, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
+    // 加载用户程序到内存
+    struct proghdr ph;
+    for (int i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph)) {
+        // 读取第i个程序头
+        if (readi(mip, false, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
             goto bad;
+        // 跳过不可加载的段
         if (ph.type != ELF_PROG_LOAD)
             continue;
+        // 确保段在内存大小>=文件大小
         if (ph.memsz < ph.filesz)
             goto bad;
+        // 确保段的内存大小非负
         if (ph.vaddr + ph.memsz < ph.vaddr)
             goto bad;
+        // 确保段的虚拟地址页对齐
         if (ph.vaddr % PGSIZE != 0)
             goto bad;
-        uint64 sz1;
+
+        uint64 sz1; // 扩展用户内存
         if ((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz, flags2perm(ph.flags))) == 0)
             goto bad;
         sz = sz1;
-        if (loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
+
+        // 加载段到内存
+        if (loadseg(pagetable, ph.vaddr, mip, ph.off, ph.filesz) < 0)
             goto bad;
     }
-    iunlockput(ip);
+
+    iunlockput(mip); //** 释放inode锁 (减引用)
+    mip = NULL;
+
     end_op(); //* 事务结束
-    ip = 0;
 
     p = myproc();
     uint64 oldsz = p->sz;
 
-    // Allocate some pages at the next page boundary.
-    // Make the first inaccessible as a stack guard.
-    // Use the rest as the user stack.
+    // 在下一页边界分配一些页
+    // 将第一个页设置为不可访问作为栈保护
+    // 使用其余的作为用户栈
     sz = PGROUNDUP(sz);
-    uint64 sz1;
+
+    uint64 sz1; // 扩展2页用户内存 (保护页+用户栈)
     if ((sz1 = uvmalloc(pagetable, sz, sz + (USERSTACK + 1) * PGSIZE, PTE_W)) == 0)
         goto bad;
     sz = sz1;
-    uvmclear(pagetable, sz - (USERSTACK + 1) * PGSIZE);
-    sp = sz;
-    stackbase = sp - USERSTACK * PGSIZE;
 
-    // Push argument strings, prepare rest of stack in ustack.
+    // 将保护页设置为不可访问
+    uvmclear(pagetable, sz - (USERSTACK + 1) * PGSIZE);
+
+    sp = sz;                             // 栈指针
+    stackbase = sp - USERSTACK * PGSIZE; // 栈页的基地址
+
+    // 加载参数字符串, 准备ustack
+    uint64 argc;
+    uint64 ustack[MAXARG];
     for (argc = 0; argv[argc]; argc++) {
         if (argc >= MAXARG)
             goto bad;
         sp -= strlen(argv[argc]) + 1;
-        sp -= sp % 16; // riscv sp must be 16-byte aligned
+        sp -= sp % 16; // 16字节对齐
+        // 确保sp不会超出栈页
         if (sp < stackbase)
             goto bad;
+        // 将参数字符串复制到用户栈
         if (copyout(pagetable, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
             goto bad;
         ustack[argc] = sp;
     }
     ustack[argc] = 0;
 
-    // push the array of argv[] pointers.
+    // 加载argv[]指针数组
     sp -= (argc + 1) * sizeof(uint64);
-    sp -= sp % 16;
+    sp -= sp % 16; // 16字节对齐
+    // 确保sp不会超出栈页
     if (sp < stackbase)
         goto bad;
+    // 将argv[]指针数组复制到用户栈
     if (copyout(pagetable, sp, (char*)ustack, (argc + 1) * sizeof(uint64)) < 0)
         goto bad;
 
-    // arguments to user main(argc, argv)
-    // argc is returned via the system call return
-    // value, which goes in a0.
+    // 将argv保存到a1寄存器
+    // 即main(argc, argv)的第二个参数
     p->trapframe->a1 = sp;
 
-    // Save program name for debugging.
+    // 记录程序名称用于调试
+    char *s, *last;
     for (last = s = path; *s; s++)
         if (*s == '/')
             last = s + 1;
     safestrcpy(p->name, last, sizeof(p->name));
 
-    // Commit to the user image.
-    oldpagetable = p->pagetable;
+    // 切换到新的页表
+    pagetable_t oldpagetable = p->pagetable;
     p->pagetable = pagetable;
-    p->sz = sz;
-    p->trapframe->epc = elf.entry; // initial program counter = main
-    p->trapframe->sp = sp;         // initial stack pointer
-    proc_freepagetable(oldpagetable, oldsz);
 
-    return argc; // this ends up in a0, the first argument to main(argc, argv)
+    p->sz = sz;                              // 更新用户内存大小
+    p->trapframe->epc = elf.entry;           // 设置程序入口地址
+    p->trapframe->sp = sp;                   // 设置用户栈指针
+    proc_freepagetable(oldpagetable, oldsz); // 清空旧页表
+
+    // 返回后会将argc保存到a0寄存器
+    // 即main(argc, argv)的第一个参数
+    return argc;
 
 bad:
     if (pagetable)
         proc_freepagetable(pagetable, sz);
-    if (ip) {
-        iunlockput(ip);
+    if (mip) {
+        iunlockput(mip);
         end_op(); //* 事务结束
     }
     return -1;
 }
 
-// Load a program segment into pagetable at virtual address va.
-// va must be page-aligned
-// and the pages from va to va+sz must already be mapped.
-// Returns 0 on success, -1 on failure.
-static int loadseg(pagetable_t pagetable, uint64 va, struct minode* ip, uint offset, uint sz)
+// 加载程序段到页表的虚拟地址
+// (需要va页对齐 并且已映射到页表)
+static int loadseg(pagetable_t pagetable, uint64 va, struct minode* mip, uint offset, uint sz)
 {
-    uint i, n;
-    uint64 pa;
-
-    for (i = 0; i < sz; i += PGSIZE) {
-        pa = walkaddr(pagetable, va + i);
+    for (int i = 0; i < sz; i += PGSIZE) {
+        // 获取对应的物理地址
+        uint64 pa = walkaddr(pagetable, va + i);
         if (pa == 0)
-            panic("loadseg: address should exist");
+            panic("loadseg: 页表地址未映射");
+
+        // 该页剩余大小
+        uint n;
         if (sz - i < PGSIZE)
             n = sz - i;
         else
             n = PGSIZE;
-        if (readi(ip, false, (uint64)pa, offset + i, n) != n)
+
+        // 读取数据到对应物理地址
+        if (readi(mip, false, (uint64)pa, offset + i, n) != n)
             return -1;
     }
-
     return 0;
 }

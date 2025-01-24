@@ -15,7 +15,6 @@
 // [ boot block | super block | log blocks | inode blocks | free bit map | data blocks ]
 // [      0     |      1      | 2       31 | 32        44 |      45      | 46     1999 ]
 
-
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
@@ -485,28 +484,26 @@ uint64 sys_chdir(void)
 uint64 sys_exec(void)
 {
     char path[MAXPATH], *argv[MAXARG];
-    uint64 uargv, uarg;
 
     // 将trapframe->a1的值 写入uargv
+    uint64 uargv;
     argaddr(1, &uargv);
 
     // 将trapframe->a0的值 作为字符串写入path
-    if (argstr(0, path, MAXPATH) < 0) {
+    if (argstr(0, path, MAXPATH) < 0)
         return -1;
-    }
 
     // 开始解析参数
     memset(argv, 0, sizeof(argv));
     for (int i = 0;; i++) {
         // 确保参数个数不超过最大值
-        if (i >= NELEM(argv)) {
+        if (i >= NELEM(argv))
             goto bad;
-        }
 
         // 从用户地址 获取第i个参数, 并将其值写入uarg
-        if (fetchaddr(uargv + sizeof(uint64) * i, (uint64*)&uarg) < 0) {
+        uint64 uarg;
+        if (fetchaddr(uargv + sizeof(uint64) * i, (uint64*)&uarg) < 0)
             goto bad;
-        }
 
         // 如果uarg为0 则表示参数解析完毕
         if (uarg == 0) {
