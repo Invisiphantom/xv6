@@ -503,7 +503,7 @@ int dirlink(minode* dp, char* name, uint inum)
     strncpy(de.name, name, DIRSIZ); // 文件名称
 
     // 写入文件项
-    if (writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+    if (writei(dp, false, (uint64)&de, off, sizeof(de)) != sizeof(de))
         return -1;
 
     return 0;

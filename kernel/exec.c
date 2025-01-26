@@ -19,6 +19,7 @@ int flags2perm(int flags)
     return perm;
 }
 
+// sysfile.c->sys_exec 跳转到这里
 // int exec(char *file, char *argv[])
 int exec(char* path, char** argv)
 {

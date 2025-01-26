@@ -86,7 +86,7 @@ void pipeclose(struct pipe* pi, int writable)
         release(&pi->lock); //* 释放管道锁
 }
 
-// 从管道读取数据
+// 向管道写入数据
 int pipewrite(struct pipe* pi, uint64 addr, int n)
 {
     int i = 0;
@@ -122,7 +122,7 @@ int pipewrite(struct pipe* pi, uint64 addr, int n)
     return i;
 }
 
-// 向管道写入数据
+// 从管道读取数据
 int piperead(struct pipe* pi, uint64 addr, int n)
 {
     struct proc* pr = myproc();

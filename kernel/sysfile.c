@@ -286,17 +286,16 @@ bad:
 // 创建inode
 static minode* create(char* path, short type, short major, short minor)
 {
-    minode *ip, *dp;
     char name[DIRSIZ];
 
-    // 获取path->对应inode->其父目录inode
+    minode* dp; // 获取path对应父目录的inode
     if ((dp = nameiparent(path, name)) == 0)
         return 0;
 
-    // 锁定父目录inode
-    ilock(dp);
+    ilock(dp); //* 锁定父目录inode
 
-    if ((ip = dirlookup(dp, name, 0)) != 0) {
+    minode* ip; // 确保路径对应文件 当前不存在
+    if ((ip = dirlookup(dp, name, 0)) != NULL) {
         iunlockput(dp);
         ilock(ip);
         if (type == I_FILE && (ip->type == I_FILE || ip->type == I_DEVICE))
@@ -306,33 +305,35 @@ static minode* create(char* path, short type, short major, short minor)
     }
 
     // 分配新的inode
-    if ((ip = ialloc(dp->dev, type)) == 0) {
+    if ((ip = ialloc(dp->dev, type)) == NULL) {
         iunlockput(dp);
         return 0;
     }
 
-    ilock(ip);
+    ilock(ip); //* 锁定新inode
     ip->major = major;
     ip->minor = minor;
     ip->nlink = 1;
-    iupdate(ip);
+    iupdate(ip); // 将inode写回硬盘
 
-    if (type == I_DIR) { // Create . and .. entries.
-        // No ip->nlink++ for ".": avoid cyclic ref count.
+    // 如果创建的是文件夹
+    // 创建 . 和 .. 文件项
+    if (type == I_DIR)
         if (dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
             goto fail;
-    }
 
+    // 向父目录添加新inode
     if (dirlink(dp, name, ip->inum) < 0)
         goto fail;
 
+    // 如果创建的是文件夹
+    // 增加其父目录的引用 (..)
     if (type == I_DIR) {
-        // now that success is guaranteed:
-        dp->nlink++; // for ".."
+        dp->nlink++;
         iupdate(dp);
     }
 
-    iunlockput(dp);
+    iunlockput(dp); //* 释放父目录inode
 
     return ip;
 
@@ -511,7 +512,7 @@ uint64 sys_exec(void)
             break;
         }
 
-        // 分配一页新的内存
+        // 分配新内存
         argv[i] = kalloc();
         if (argv[i] == 0)
             goto bad;
@@ -522,9 +523,12 @@ uint64 sys_exec(void)
 
     int ret = exec(path, argv);
 
+    // 释放参数内存
     for (int i = 0; i < NELEM(argv) && argv[i] != 0; i++)
         kfree(argv[i]);
 
+    // 返回后会将argc保存到a0寄存器
+    // 即main(argc, argv)的第一个参数
     return ret;
 
 bad:
@@ -537,13 +541,15 @@ bad:
 uint64 sys_pipe(void)
 {
     uint64 fdarray; // user pointer to array of two integers
-    struct file *rf, *wf;
     int fd0, fd1;
     struct proc* p = myproc();
 
     argaddr(0, &fdarray);
+
+    struct file *rf, *wf;
     if (pipealloc(&rf, &wf) < 0)
         return -1;
+
     fd0 = -1;
     if ((fd0 = fdalloc(rf)) < 0 || (fd1 = fdalloc(wf)) < 0) {
         if (fd0 >= 0)

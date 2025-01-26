@@ -100,6 +100,7 @@ void runcmd(struct cmd* cmd)
             pcmd = (struct pipecmd*)cmd;
             if (pipe(p) < 0)
                 panic("pipe");
+            printf("pipe: %d %d\n", p[0], p[1]);
             if (fork1() == 0) {
                 close(1);
                 dup(p[1]);
@@ -145,6 +146,7 @@ int getcmd(char* buf, int nbuf)
     return 0;
 }
 
+// -exec file ./user/_sh
 int main(void)
 {
     static char buf[100];

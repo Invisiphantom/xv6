@@ -282,14 +282,12 @@ int growproc(int n)
 // 设置子进程内核栈数据, 以便返回fork()系统调用
 int fork(void)
 {
-    int i, pid;
-    struct proc* np;
     struct proc* p = myproc();
 
-    // 分配新的空闲进程 (获取np->lock)
-    if ((np = allocproc()) == 0) {
+    //* 分配新的空闲进程 (获取np->lock)
+    struct proc* np;
+    if ((np = allocproc()) == 0)
         return -1;
-    }
 
     // 将父进程的用户内存 复制到子进程
     if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
@@ -297,6 +295,7 @@ int fork(void)
         release(&np->lock);
         return -1;
     }
+
     np->sz = p->sz;
 
     // 拷贝trapframe数据页
@@ -306,7 +305,7 @@ int fork(void)
     np->trapframe->a0 = 0;
 
     // 增加对已打开文件描述符的引用计数
-    for (i = 0; i < NOFILE; i++)
+    for (int i = 0; i < NOFILE; i++)
         if (p->ofile[i])
             np->ofile[i] = filedup(p->ofile[i]);
     np->cwd = idup(p->cwd);
@@ -314,10 +313,9 @@ int fork(void)
     // 拷贝进程名
     safestrcpy(np->name, p->name, sizeof(p->name));
 
-    pid = np->pid;
+    int pid = np->pid;
 
-    // 释放np->lock
-    release(&np->lock);
+    release(&np->lock); //* 释放子进程锁
 
     // 设置子进程的父进程
     acquire(&wait_lock);
@@ -629,10 +627,11 @@ int killed(struct proc* p)
 int either_copyout(int user_dst, uint64 dst, void* src, uint64 len)
 {
     struct proc* p = myproc();
+
     // 如果是用户地址, 则调用copyout
-    if (user_dst) {
+    if (user_dst)
         return copyout(p->pagetable, dst, src, len);
-    }
+
     // 如果是内核地址, 则直接拷贝
     else {
         memmove((char*)dst, src, len);

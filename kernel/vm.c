@@ -327,13 +327,10 @@ void uvmfree(pagetable_t pagetable, uint64 sz)
 // 既复制页表页, 又复制物理内存页
 int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
-    pte_t* pte;
-    uint64 pa, i;
-    uint flags;
-    char* mem;
-
+    uint64 i;
     for (i = 0; i < sz; i += PGSIZE) {
         // 确保页表项存在
+        pte_t* pte;
         if ((pte = walk(old, i, false)) == 0)
             panic("uvmcopy: pte should exist");
 
@@ -342,10 +339,11 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
             panic("uvmcopy: page not present");
 
         // 获取物理地址和权限位
-        pa = PTE2PA(*pte);
-        flags = PTE_FLAGS(*pte);
+        uint64 pa = PTE2PA(*pte);
+        uint flags = PTE_FLAGS(*pte);
 
         // 分配一页新内存
+        char* mem;
         if ((mem = kalloc()) == 0)
             goto err;
 
@@ -379,23 +377,29 @@ void uvmclear(pagetable_t pagetable, uint64 va)
 }
 
 // 从内核空间 复制数据到 用户空间
-// 从 srcva 复制 len 字节到给定页表中的虚拟地址 dstva
+// 从 src 复制 len 字节到给定页表中的虚拟地址 dstva
 int copyout(pagetable_t pagetable, uint64 dstva, char* src, uint64 len)
 {
-    uint64 n, va0, pa0;
-    pte_t* pte;
-
     while (len > 0) {
-        va0 = PGROUNDDOWN(dstva);
+        // 获取dstva所在页的首地址
+        uint64 va0 = PGROUNDDOWN(dstva);
         if (va0 >= MAXVA)
             return -1;
-        pte = walk(pagetable, va0, false);
+
+        // 获取dstva对应的页表项
+        pte_t* pte = walk(pagetable, va0, false);
         if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 || (*pte & PTE_W) == 0)
             return -1;
-        pa0 = PTE2PA(*pte);
-        n = PGSIZE - (dstva - va0);
+
+        // 获取va0对应的物理地址
+        uint64 pa0 = PTE2PA(*pte);
+
+        // 计算dstva到页末的字节数
+        uint64 n = PGSIZE - (dstva - va0);
         if (n > len)
             n = len;
+
+        // 拷贝数据到物理地址
         memmove((void*)(pa0 + (dstva - va0)), src, n);
 
         len -= n;
